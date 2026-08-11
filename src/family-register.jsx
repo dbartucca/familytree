@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
+import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import Papa from "papaparse";
 import { Search, Upload, X, ZoomIn, ZoomOut, Crown, Shield, RotateCcw, ChevronRight } from "lucide-react";
 
@@ -131,6 +131,7 @@ function buildLayout(people, marriages) {
       }
     });
   });
+  // dedupe children lists (in case both mother+father entries added same child twice under same parent — not possible here, but safe)
   childrenMap.forEach((list, key) => childrenMap.set(key, [...new Set(list)]));
 
   const spouseMap = new Map(); // personId -> [spouseId]
@@ -144,10 +145,11 @@ function buildLayout(people, marriages) {
     marriageOf.set(`${m.husband}|${m.wife}`, m);
   });
 
+  // generation numbers
   const genMemo = new Map();
   function genOf(id) {
     if (genMemo.has(id)) return genMemo.get(id);
-    genMemo.set(id, 0);
+    genMemo.set(id, 0); // guard against cycles
     const p = byId.get(id);
     let g = 0;
     if (p && p.father_id && byId.has(p.father_id)) g = Math.max(g, genOf(p.father_id) + 1);
@@ -156,6 +158,7 @@ function buildLayout(people, marriages) {
     return g;
   }
   people.forEach((p) => genOf(p.id));
+  // align spouses to the same (later) generation
   marriages.forEach((m) => {
     if (!byId.has(m.husband) || !byId.has(m.wife)) return;
     const g = Math.max(genMemo.get(m.husband) ?? 0, genMemo.get(m.wife) ?? 0);
@@ -163,6 +166,7 @@ function buildLayout(people, marriages) {
     genMemo.set(m.wife, g);
   });
 
+  // x positions via recursive unit layout
   const xPos = new Map();
   const visited = new Set();
   const cursor = { v: 0 };
@@ -196,7 +200,10 @@ function buildLayout(people, marriages) {
     return members.length === 1 ? xPos.get(members[0]) : (xPos.get(members[0]) + xPos.get(members[1])) / 2;
   }
 
-  const sortedIds = [...people].map((p) => p.id).sort((a, b) => genOf(a) - genOf(b));
+  // process gen-0 roots first (in data order), then any stragglers
+  const sortedIds = [...people]
+    .map((p) => p.id)
+    .sort((a, b) => genOf(a) - genOf(b));
   sortedIds.forEach((id) => {
     if (!xPos.has(id)) layoutUnit(id);
   });
@@ -213,6 +220,7 @@ function buildLayout(people, marriages) {
     });
   });
 
+  // parent-child edges
   const edges = [];
   people.forEach((p) => {
     const mom = p.mother_id && positions.has(p.mother_id) ? positions.get(p.mother_id) : null;
@@ -230,6 +238,7 @@ function buildLayout(people, marriages) {
     });
   });
 
+  // marriage edges
   const marriageEdges = [];
   marriages.forEach((m, i) => {
     if (!positions.has(m.husband) || !positions.has(m.wife)) return;
@@ -626,6 +635,7 @@ export default function FamilyRegister() {
     >
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');`}</style>
 
+      {/* header */}
       <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b shrink-0" style={{ borderColor: LINE }}>
         <div>
           <h1 className="text-xl leading-none" style={{ fontFamily: "Fraunces, serif", fontWeight: 700, color: INK }}>
@@ -683,11 +693,13 @@ export default function FamilyRegister() {
         </div>
       </div>
 
+      {/* canvas */}
       <div
         ref={containerRef}
         className="relative flex-1 overflow-hidden"
         style={{
-          background: "radial-gradient(circle at 1px 1px, rgba(35,42,59,0.09) 1px, transparent 0) " + PARCHMENT,
+          background:
+            "radial-gradient(circle at 1px 1px, rgba(35,42,59,0.09) 1px, transparent 0) " + PARCHMENT,
           backgroundSize: "22px 22px",
           cursor: panState.current.dragging ? "grabbing" : "grab",
         }}
@@ -719,6 +731,7 @@ export default function FamilyRegister() {
           </svg>
         ) : null}
 
+        {/* zoom controls */}
         <div className="absolute bottom-4 right-4 flex flex-col rounded border overflow-hidden" style={{ borderColor: LINE, background: CARD }}>
           <button
             onClick={() => setView((v) => ({ ...v, scale: Math.min(2, v.scale + 0.15) }))}
@@ -739,6 +752,7 @@ export default function FamilyRegister() {
           </button>
         </div>
 
+        {/* legend */}
         <div
           className="absolute bottom-4 left-4 hidden md:flex items-center gap-4 text-[11px] px-3 py-2 rounded border"
           style={{ borderColor: LINE, background: CARD, color: "#6B6350" }}
