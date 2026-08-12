@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import Papa from "papaparse";
-import { Search, Upload, X, ZoomIn, ZoomOut, Crown, Shield, RotateCcw, ChevronRight } from "lucide-react";
+import { Search, X, ZoomIn, ZoomOut, Crown, Shield, RotateCcw, ChevronRight } from "lucide-react";
 
 /* ---------------------------------------------------------------------- */
 /*  TOKENS                                                                 */
@@ -15,57 +15,21 @@ const LINE = "#C9BFA4";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /* ---------------------------------------------------------------------- */
-/*  SAMPLE DATA — matches the people / marriages / location schema        */
+/*  DATA SOURCE — CSVs served from /public/data/ in your repo             */
 /* ---------------------------------------------------------------------- */
-const SAMPLE_LOCATIONS = [
-  { location_id: "loc1", country: "US", state: "Massachusetts", county: "Suffolk", town: "Boston", village: "", alternative: "", details: "Trinity Church" },
-  { location_id: "loc3", country: "GB", state: "", county: "Yorkshire", town: "York", village: "", alternative: "Eboracum, Roman Britain", details: "" },
-  { location_id: "loc4", country: "US", state: "Virginia", county: "Fairfax", town: "Alexandria", village: "", alternative: "", details: "" },
-  { location_id: "loc5", country: "US", state: "New York", county: "New York", town: "Manhattan", village: "", alternative: "New Amsterdam", details: "St. Patrick's Cathedral" },
-  { location_id: "loc6", country: "US", state: "Massachusetts", county: "Middlesex", town: "Cambridge", village: "", alternative: "", details: "" },
-];
+const DATA_BASE = `${import.meta.env.BASE_URL}data/`;
 
-const SAMPLE_PEOPLE = [
-  { id: "p1", first_name: "James", middle_name: "", last_name: "Whitfield", married_name: "", suffix: "Sr.", birth_year: 1802, birth_month: 4, birth_day: 12, birth_location_id: "loc3", mother_id: "", father_id: "", description: "Emigrated from York in 1824 and established the family's Boston trade.", gender: "M", death_year: 1871, death_month: 11, death_day: 2, death_location_id: "loc1", tittle: "", military: "" },
-  { id: "p2", first_name: "Margaret", middle_name: "", last_name: "Holloway", married_name: "Margaret Whitfield", suffix: "", birth_year: 1806, birth_month: 1, birth_day: 22, birth_location_id: "loc1", mother_id: "", father_id: "", description: "", gender: "F", death_year: 1868, death_month: 6, death_day: 14, death_location_id: "loc1", tittle: "", military: "" },
-  { id: "p3", first_name: "Thomas", middle_name: "", last_name: "Whitfield", married_name: "", suffix: "", birth_year: 1828, birth_month: 3, birth_day: 9, birth_location_id: "loc1", mother_id: "p2", father_id: "p1", description: "", gender: "M", death_year: 1901, death_month: 5, death_day: 19, death_location_id: "loc1", tittle: "", military: "" },
-  { id: "p4", first_name: "Sarah", middle_name: "", last_name: "Whitfield", married_name: "Sarah Pierce", suffix: "", birth_year: 1831, birth_month: 7, birth_day: 30, birth_location_id: "loc1", mother_id: "p2", father_id: "p1", description: "", gender: "F", death_year: 1889, death_month: 2, death_day: 11, death_location_id: "loc4", tittle: "", military: "" },
-  { id: "p5", first_name: "Edmund", middle_name: "", last_name: "Whitfield", married_name: "", suffix: "", birth_year: 1834, birth_month: 9, birth_day: 2, birth_location_id: "loc1", mother_id: "p2", father_id: "p1", description: "Fell at the Battle of Antietam.", gender: "M", death_year: 1862, death_month: 9, death_day: 17, death_location_id: "loc4", tittle: "", military: "US ARMY" },
-  { id: "p6", first_name: "Eliza", middle_name: "", last_name: "Carter", married_name: "Eliza Whitfield", suffix: "", birth_year: 1830, birth_month: 12, birth_day: 5, birth_location_id: "loc1", mother_id: "", father_id: "", description: "", gender: "F", death_year: 1905, death_month: 3, death_day: 28, death_location_id: "loc1", tittle: "", military: "" },
-  { id: "p7", first_name: "William", middle_name: "", last_name: "Pierce", married_name: "", suffix: "", birth_year: 1828, birth_month: 2, birth_day: 17, birth_location_id: "loc4", mother_id: "", father_id: "", description: "", gender: "M", death_year: 1895, death_month: 8, death_day: 9, death_location_id: "loc4", tittle: "Colonel", military: "US ARMY" },
-  { id: "p8", first_name: "Henry", middle_name: "Alden", last_name: "Whitfield", married_name: "", suffix: "", birth_year: 1855, birth_month: 4, birth_day: 11, birth_location_id: "loc1", mother_id: "p6", father_id: "p3", description: "", gender: "M", death_year: 1930, death_month: 1, death_day: 30, death_location_id: "loc6", tittle: "Captain", military: "US ARMY" },
-  { id: "p9", first_name: "Charlotte", middle_name: "", last_name: "Whitfield", married_name: "Charlotte Reed", suffix: "", birth_year: 1858, birth_month: 8, birth_day: 19, birth_location_id: "loc1", mother_id: "p6", father_id: "p3", description: "", gender: "F", death_year: 1940, death_month: 12, death_day: 2, death_location_id: "loc5", tittle: "", military: "" },
-  { id: "p10", first_name: "Robert", middle_name: "", last_name: "Pierce", married_name: "", suffix: "", birth_year: 1853, birth_month: 6, birth_day: 23, birth_location_id: "loc4", mother_id: "p4", father_id: "p7", description: "", gender: "M", death_year: 1920, death_month: 4, death_day: 14, death_location_id: "loc4", tittle: "", military: "" },
-  { id: "p11", first_name: "Anna", middle_name: "", last_name: "Pierce", married_name: "Anna Whitmore", suffix: "", birth_year: 1856, birth_month: 1, birth_day: 9, birth_location_id: "loc4", mother_id: "p4", father_id: "p7", description: "", gender: "F", death_year: 1912, death_month: 7, death_day: 22, death_location_id: "loc4", tittle: "", military: "" },
-  { id: "p26", first_name: "Charles", middle_name: "", last_name: "Whitmore", married_name: "", suffix: "", birth_year: 1854, birth_month: 5, birth_day: 3, birth_location_id: "loc4", mother_id: "", father_id: "", description: "", gender: "M", death_year: 1930, death_month: 2, death_day: 16, death_location_id: "loc4", tittle: "", military: "" },
-  { id: "p12", first_name: "Louisa", middle_name: "", last_name: "Bennett", married_name: "Louisa Whitfield", suffix: "", birth_year: 1860, birth_month: 3, birth_day: 2, birth_location_id: "loc6", mother_id: "", father_id: "", description: "", gender: "F", death_year: 1935, death_month: 10, death_day: 11, death_location_id: "loc6", tittle: "", military: "" },
-  { id: "p13", first_name: "Joseph", middle_name: "", last_name: "Reed", married_name: "", suffix: "", birth_year: 1855, birth_month: 9, birth_day: 14, birth_location_id: "loc5", mother_id: "", father_id: "", description: "Physician.", gender: "M", death_year: 1922, death_month: 2, death_day: 27, death_location_id: "loc5", tittle: "Dr.", military: "" },
-  { id: "p14", first_name: "Mary", middle_name: "", last_name: "Todd", married_name: "Mary Pierce", suffix: "", birth_year: 1857, birth_month: 5, birth_day: 30, birth_location_id: "loc4", mother_id: "", father_id: "", description: "", gender: "F", death_year: 1930, death_month: 9, death_day: 19, death_location_id: "loc4", tittle: "", military: "" },
-  { id: "p15", first_name: "Walter", middle_name: "", last_name: "Whitfield", married_name: "", suffix: "", birth_year: 1882, birth_month: 2, birth_day: 19, birth_location_id: "loc6", mother_id: "p12", father_id: "p8", description: "", gender: "M", death_year: 1959, death_month: 3, death_day: 22, death_location_id: "loc6", tittle: "", military: "USMC" },
-  { id: "p16", first_name: "Grace", middle_name: "", last_name: "Whitfield", married_name: "Grace Sutton", suffix: "", birth_year: 1885, birth_month: 7, birth_day: 8, birth_location_id: "loc6", mother_id: "p12", father_id: "p8", description: "", gender: "F", death_year: 1963, death_month: 11, death_day: 30, death_location_id: "loc6", tittle: "", military: "" },
-  { id: "p17", first_name: "Edith", middle_name: "", last_name: "Reed", married_name: "", suffix: "", birth_year: 1880, birth_month: 10, birth_day: 2, birth_location_id: "loc5", mother_id: "p9", father_id: "p13", description: "", gender: "F", death_year: 1955, death_month: 6, death_day: 18, death_location_id: "loc5", tittle: "", military: "" },
-  { id: "p18", first_name: "Frank", middle_name: "", last_name: "Pierce", married_name: "", suffix: "", birth_year: 1880, birth_month: 1, birth_day: 15, birth_location_id: "loc4", mother_id: "p14", father_id: "p10", description: "", gender: "M", death_year: 1945, death_month: 8, death_day: 27, death_location_id: "loc4", tittle: "", military: "" },
-  { id: "p19", first_name: "Helen", middle_name: "", last_name: "Cross", married_name: "Helen Whitfield", suffix: "", birth_year: 1888, birth_month: 4, birth_day: 25, birth_location_id: "loc6", mother_id: "", father_id: "", description: "", gender: "F", death_year: 1965, death_month: 1, death_day: 9, death_location_id: "loc6", tittle: "", military: "" },
-  { id: "p20", first_name: "George", middle_name: "", last_name: "Sutton", married_name: "", suffix: "", birth_year: 1883, birth_month: 11, birth_day: 11, birth_location_id: "loc6", mother_id: "", father_id: "", description: "Parish minister.", gender: "M", death_year: 1950, death_month: 5, death_day: 6, death_location_id: "loc6", tittle: "Reverend", military: "" },
-  { id: "p21", first_name: "Margaret", middle_name: "Anne", last_name: "Whitfield", married_name: "Margaret Doyle", suffix: "II", birth_year: 1907, birth_month: 5, birth_day: 14, birth_location_id: "loc6", mother_id: "p19", father_id: "p15", description: "", gender: "F", death_year: 1990, death_month: 2, death_day: 8, death_location_id: "loc6", tittle: "", military: "" },
-  { id: "p22", first_name: "James", middle_name: "", last_name: "Whitfield", married_name: "", suffix: "II", birth_year: 1910, birth_month: 8, birth_day: 30, birth_location_id: "loc6", mother_id: "p19", father_id: "p15", description: "Never married; served as town archivist for forty years, cataloguing the family's papers now held at the Cambridge historical society.", gender: "M", death_year: 1975, death_month: 12, death_day: 19, death_location_id: "loc6", tittle: "", military: "" },
-  { id: "p23", first_name: "Dorothy", middle_name: "", last_name: "Sutton", married_name: "", suffix: "", birth_year: 1909, birth_month: 3, birth_day: 27, birth_location_id: "loc6", mother_id: "p16", father_id: "p20", description: "", gender: "F", death_year: 1998, death_month: 9, death_day: 14, death_location_id: "loc6", tittle: "", military: "" },
-  { id: "p24", first_name: "Charles", middle_name: "", last_name: "Doyle", married_name: "", suffix: "", birth_year: 1905, birth_month: 12, birth_day: 8, birth_location_id: "loc1", mother_id: "", father_id: "", description: "", gender: "M", death_year: 1980, death_month: 4, death_day: 2, death_location_id: "loc1", tittle: "", military: "" },
-  { id: "p25", first_name: "Patricia", middle_name: "Ann", last_name: "Doyle", married_name: "", suffix: "", birth_year: 1930, birth_month: 4, birth_day: 17, birth_location_id: "loc6", mother_id: "p21", father_id: "p24", description: "Family historian who began compiling this register in 1975.", gender: "F", death_year: 2015, death_month: 1, death_day: 25, death_location_id: "loc6", tittle: "", military: "" },
-];
-
-const SAMPLE_MARRIAGES = [
-  { husband: "p1", wife: "p2", year: 1825, month: 6, day: 3, location_id: "loc1" },
-  { husband: "p3", wife: "p6", year: 1852, month: 10, day: 2, location_id: "loc1" },
-  { husband: "p7", wife: "p4", year: 1850, month: 5, day: 20, location_id: "loc4" },
-  { husband: "p26", wife: "p11", year: 1877, month: 9, day: 1, location_id: "loc4" },
-  { husband: "p8", wife: "p12", year: 1880, month: 6, day: 15, location_id: "loc6" },
-  { husband: "p13", wife: "p9", year: 1878, month: 4, day: 3, location_id: "loc5" },
-  { husband: "p10", wife: "p14", year: 1878, month: 11, day: 8, location_id: "loc4" },
-  { husband: "p15", wife: "p19", year: 1905, month: 9, day: 2, location_id: "loc6" },
-  { husband: "p20", wife: "p16", year: 1907, month: 6, day: 21, location_id: "loc6" },
-  { husband: "p24", wife: "p21", year: 1928, month: 6, day: 9, location_id: "loc1" },
-];
+function fetchCsv(url) {
+  return new Promise((resolve) => {
+    Papa.parse(url, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => resolve(res.data),
+      error: () => resolve(null),
+    });
+  });
+}
 
 /* ---------------------------------------------------------------------- */
 /*  LAYOUT CONSTANTS                                                       */
@@ -122,7 +86,7 @@ function toNum(v) {
 function buildLayout(people, marriages) {
   const byId = new Map(people.map((p) => [p.id, p]));
 
-  const childrenMap = new Map(); // parentId -> [childId]
+  const childrenMap = new Map();
   people.forEach((p) => {
     [p.mother_id, p.father_id].forEach((pid) => {
       if (pid && byId.has(pid)) {
@@ -131,11 +95,10 @@ function buildLayout(people, marriages) {
       }
     });
   });
-  // dedupe children lists (in case both mother+father entries added same child twice under same parent — not possible here, but safe)
   childrenMap.forEach((list, key) => childrenMap.set(key, [...new Set(list)]));
 
-  const spouseMap = new Map(); // personId -> [spouseId]
-  const marriageOf = new Map(); // "a|b" -> marriage record
+  const spouseMap = new Map();
+  const marriageOf = new Map();
   marriages.forEach((m) => {
     if (!byId.has(m.husband) || !byId.has(m.wife)) return;
     if (!spouseMap.has(m.husband)) spouseMap.set(m.husband, []);
@@ -145,11 +108,10 @@ function buildLayout(people, marriages) {
     marriageOf.set(`${m.husband}|${m.wife}`, m);
   });
 
-  // generation numbers
   const genMemo = new Map();
   function genOf(id) {
     if (genMemo.has(id)) return genMemo.get(id);
-    genMemo.set(id, 0); // guard against cycles
+    genMemo.set(id, 0);
     const p = byId.get(id);
     let g = 0;
     if (p && p.father_id && byId.has(p.father_id)) g = Math.max(g, genOf(p.father_id) + 1);
@@ -158,7 +120,6 @@ function buildLayout(people, marriages) {
     return g;
   }
   people.forEach((p) => genOf(p.id));
-  // align spouses to the same (later) generation
   marriages.forEach((m) => {
     if (!byId.has(m.husband) || !byId.has(m.wife)) return;
     const g = Math.max(genMemo.get(m.husband) ?? 0, genMemo.get(m.wife) ?? 0);
@@ -166,7 +127,6 @@ function buildLayout(people, marriages) {
     genMemo.set(m.wife, g);
   });
 
-  // x positions via recursive unit layout
   const xPos = new Map();
   const visited = new Set();
   const cursor = { v: 0 };
@@ -200,10 +160,7 @@ function buildLayout(people, marriages) {
     return members.length === 1 ? xPos.get(members[0]) : (xPos.get(members[0]) + xPos.get(members[1])) / 2;
   }
 
-  // process gen-0 roots first (in data order), then any stragglers
-  const sortedIds = [...people]
-    .map((p) => p.id)
-    .sort((a, b) => genOf(a) - genOf(b));
+  const sortedIds = [...people].map((p) => p.id).sort((a, b) => genOf(a) - genOf(b));
   sortedIds.forEach((id) => {
     if (!xPos.has(id)) layoutUnit(id);
   });
@@ -220,7 +177,6 @@ function buildLayout(people, marriages) {
     });
   });
 
-  // parent-child edges
   const edges = [];
   people.forEach((p) => {
     const mom = p.mother_id && positions.has(p.mother_id) ? positions.get(p.mother_id) : null;
@@ -238,7 +194,6 @@ function buildLayout(people, marriages) {
     });
   });
 
-  // marriage edges
   const marriageEdges = [];
   marriages.forEach((m, i) => {
     if (!positions.has(m.husband) || !positions.has(m.wife)) return;
@@ -260,10 +215,10 @@ function buildLayout(people, marriages) {
   const allX = [...positions.values()].map((p) => p.x);
   const allY = [...positions.values()].map((p) => p.y);
   const bounds = {
-    minX: Math.min(...allX) - NODE_W / 2 - MARGIN,
-    maxX: Math.max(...allX) + NODE_W / 2 + MARGIN,
-    minY: Math.min(...allY) - NODE_H / 2 - MARGIN,
-    maxY: Math.max(...allY) + NODE_H / 2 + MARGIN,
+    minX: (allX.length ? Math.min(...allX) : 0) - NODE_W / 2 - MARGIN,
+    maxX: (allX.length ? Math.max(...allX) : 0) + NODE_W / 2 + MARGIN,
+    minY: (allY.length ? Math.min(...allY) : 0) - NODE_H / 2 - MARGIN,
+    maxY: (allY.length ? Math.max(...allY) : 0) + NODE_H / 2 + MARGIN,
   };
 
   return { positions, edges, marriageEdges, maxGen, bounds, childrenMap, spouseMap, marriageOf };
@@ -425,39 +380,39 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
 }
 
 /* ---------------------------------------------------------------------- */
-/*  UPLOAD DRAWER                                                          */
+/*  MAIN APP                                                                */
 /* ---------------------------------------------------------------------- */
-function UploadDrawer({ onClose, onLoad, onReset }) {
-  const [peopleFile, setPeopleFile] = useState(null);
-  const [marriagesFile, setMarriagesFile] = useState(null);
-  const [locationsFile, setLocationsFile] = useState(null);
-  const [error, setError] = useState("");
+export default function FamilyRegister() {
+  const [people, setPeople] = useState([]);
+  const [marriages, setMarriages] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [loadState, setLoadState] = useState("loading"); // loading | ready | error
+  const [loadMessage, setLoadMessage] = useState("");
+  const [selectedId, setSelectedId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
+  const containerRef = useRef(null);
+  const panState = useRef({ dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 });
+  const [ready, setReady] = useState(false);
 
-  function parseFile(file) {
-    return new Promise((resolve, reject) => {
-      if (!file) return resolve([]);
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (res) => resolve(res.data),
-        error: reject,
-      });
-    });
-  }
-
-  async function handleLoad() {
-    setError("");
-    if (!peopleFile) {
-      setError("A people CSV is required.");
-      return;
-    }
-    try {
-      const [people, marriages, locations] = await Promise.all([
-        parseFile(peopleFile),
-        parseFile(marriagesFile),
-        parseFile(locationsFile),
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const peopleRaw = await fetchCsv(`${DATA_BASE}people.csv`);
+      if (cancelled) return;
+      if (!peopleRaw || !peopleRaw.length) {
+        setLoadState("error");
+        setLoadMessage(`Couldn't find records at ${DATA_BASE}people.csv. Make sure your CSVs are in the repo's public/data/ folder.`);
+        return;
+      }
+      const [marriagesRaw, locationsRaw] = await Promise.all([
+        fetchCsv(`${DATA_BASE}marriages.csv`),
+        fetchCsv(`${DATA_BASE}location.csv`),
       ]);
-      const cleanPeople = people
+      if (cancelled) return;
+
+      const cleanPeople = peopleRaw
         .filter((p) => p.id)
         .map((p) => ({
           ...p,
@@ -468,91 +423,21 @@ function UploadDrawer({ onClose, onLoad, onReset }) {
           death_month: toNum(p.death_month),
           death_day: toNum(p.death_day),
         }));
-      const cleanMarriages = marriages
+      const cleanMarriages = (marriagesRaw || [])
         .filter((m) => m.husband && m.wife)
         .map((m) => ({ ...m, year: toNum(m.year), month: toNum(m.month), day: toNum(m.day) }));
-      onLoad({ people: cleanPeople, marriages: cleanMarriages, locations });
-    } catch (e) {
-      setError("Could not parse one of the files. Check that they're valid CSVs.");
+      const cleanLocations = locationsRaw || [];
+
+      setPeople(cleanPeople);
+      setMarriages(cleanMarriages);
+      setLocations(cleanLocations);
+      setLoadState("ready");
     }
-  }
-
-  const FileRow = ({ label, required, file, setFile }) => (
-    <label className="flex items-center justify-between gap-3 py-2.5 border-b cursor-pointer" style={{ borderColor: LINE }}>
-      <span className="text-[13px]" style={{ fontFamily: "Inter, sans-serif", color: INK }}>
-        {label} {required ? <span style={{ color: BURGUNDY }}>*</span> : <span style={{ color: "#8A8265" }}>(optional)</span>}
-      </span>
-      <span
-        className="text-[12px] px-2.5 py-1 rounded shrink-0 max-w-[130px] truncate"
-        style={{ background: file ? BRASS : "transparent", color: file ? CARD : BRASS, border: `1px solid ${BRASS}` }}
-      >
-        {file ? file.name : "Choose file"}
-      </span>
-      <input type="file" accept=".csv" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-    </label>
-  );
-
-  return (
-    <div className="fixed inset-0 z-30 flex items-end md:items-center justify-center bg-black/30" onClick={onClose}>
-      <div
-        className="w-full md:w-[440px] max-h-[85vh] overflow-y-auto rounded-t-xl md:rounded-lg p-6"
-        style={{ background: CARD }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-semibold" style={{ fontFamily: "Fraunces, serif", color: INK }}>
-            Load your records
-          </h2>
-          <button onClick={onClose} style={{ color: INK }}>
-            <X size={18} />
-          </button>
-        </div>
-        <p className="text-[13px] mb-4" style={{ color: "#6B6350", fontFamily: "Inter, sans-serif" }}>
-          CSVs with headers matching your people / marriages / location tables. Nothing is uploaded &mdash; parsing happens in your browser.
-        </p>
-        <FileRow label="People" required file={peopleFile} setFile={setPeopleFile} />
-        <FileRow label="Marriages" file={marriagesFile} setFile={setMarriagesFile} />
-        <FileRow label="Locations" file={locationsFile} setFile={setLocationsFile} />
-        {error ? <div className="text-[12.5px] mt-3" style={{ color: BURGUNDY }}>{error}</div> : null}
-        <div className="flex gap-2 mt-5">
-          <button
-            onClick={handleLoad}
-            className="flex-1 py-2 rounded text-[13px] font-medium"
-            style={{ background: INK, color: PARCHMENT, fontFamily: "Inter, sans-serif" }}
-          >
-            Load records
-          </button>
-          <button
-            onClick={() => {
-              onReset();
-              onClose();
-            }}
-            className="py-2 px-3 rounded text-[13px]"
-            style={{ border: `1px solid ${LINE}`, color: INK, fontFamily: "Inter, sans-serif" }}
-          >
-            Use sample
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------------- */
-/*  MAIN APP                                                                */
-/* ---------------------------------------------------------------------- */
-export default function FamilyRegister() {
-  const [people, setPeople] = useState(SAMPLE_PEOPLE);
-  const [marriages, setMarriages] = useState(SAMPLE_MARRIAGES);
-  const [locations, setLocations] = useState(SAMPLE_LOCATIONS);
-  const [selectedId, setSelectedId] = useState(null);
-  const [search, setSearch] = useState("");
-  const [showSearchResults, setShowSearchResults] = useState(false);
-  const [showUpload, setShowUpload] = useState(false);
-  const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
-  const containerRef = useRef(null);
-  const panState = useRef({ dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 });
-  const [ready, setReady] = useState(false);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const locationsById = useMemo(() => new Map(locations.map((l) => [l.location_id, l])), [locations]);
@@ -560,25 +445,26 @@ export default function FamilyRegister() {
 
   const fitView = useCallback(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || !people.length) return;
     const { bounds } = layout;
     const cw = el.clientWidth;
     const ch = el.clientHeight;
-    const treeW = bounds.maxX - bounds.minX;
-    const treeH = bounds.maxY - bounds.minY;
+    const treeW = bounds.maxX - bounds.minX || 1;
+    const treeH = bounds.maxY - bounds.minY || 1;
     const scale = Math.min(cw / treeW, ch / treeH, 1);
     setView({
       x: cw / 2 - ((bounds.minX + bounds.maxX) / 2) * scale,
       y: 56 - bounds.minY * scale,
       scale,
     });
-  }, [layout]);
+  }, [layout, people.length]);
 
   useLayoutEffect(() => {
+    if (loadState !== "ready") return;
     fitView();
     setReady(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout]);
+  }, [layout, loadState]);
 
   function centerOn(id) {
     const el = containerRef.current;
@@ -642,10 +528,10 @@ export default function FamilyRegister() {
             The Family Register
           </h1>
           <div className="text-[11px] mt-1 tracking-wide" style={{ color: "#8A8265", fontFamily: "'IBM Plex Mono', monospace" }}>
-            {people.length} recorded lives &middot; {genCount} generations
+            {loadState === "ready" ? `${people.length} recorded lives \u00b7 ${genCount} generations` : loadState === "loading" ? "Loading records\u2026" : "No records loaded"}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        {loadState === "ready" ? (
           <div className="relative">
             <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border" style={{ borderColor: LINE, background: CARD }}>
               <Search size={14} color="#8A8265" />
@@ -682,15 +568,7 @@ export default function FamilyRegister() {
               </div>
             ) : null}
           </div>
-          <button
-            onClick={() => setShowUpload(true)}
-            className="flex items-center gap-1.5 text-[12.5px] px-3 py-1.5 rounded border"
-            style={{ borderColor: LINE, color: INK, background: CARD }}
-          >
-            <Upload size={13} />
-            <span className="hidden md:inline">Load data</span>
-          </button>
-        </div>
+        ) : null}
       </div>
 
       {/* canvas */}
@@ -698,19 +576,32 @@ export default function FamilyRegister() {
         ref={containerRef}
         className="relative flex-1 overflow-hidden"
         style={{
-          background:
-            "radial-gradient(circle at 1px 1px, rgba(35,42,59,0.09) 1px, transparent 0) " + PARCHMENT,
+          background: "radial-gradient(circle at 1px 1px, rgba(35,42,59,0.09) 1px, transparent 0) " + PARCHMENT,
           backgroundSize: "22px 22px",
           cursor: panState.current.dragging ? "grabbing" : "grab",
         }}
-        onWheel={onWheel}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
+        onWheel={loadState === "ready" ? onWheel : undefined}
+        onPointerDown={loadState === "ready" ? onPointerDown : undefined}
+        onPointerMove={loadState === "ready" ? onPointerMove : undefined}
+        onPointerUp={loadState === "ready" ? onPointerUp : undefined}
+        onPointerLeave={loadState === "ready" ? onPointerUp : undefined}
         onClick={() => setShowSearchResults(false)}
       >
-        {ready ? (
+        {loadState === "loading" ? (
+          <div className="absolute inset-0 flex items-center justify-center text-[13px]" style={{ color: "#8A8265", fontFamily: "Inter, sans-serif" }}>
+            Loading records&hellip;
+          </div>
+        ) : null}
+
+        {loadState === "error" ? (
+          <div className="absolute inset-0 flex items-center justify-center px-8">
+            <div className="max-w-md text-center text-[13.5px] leading-relaxed" style={{ color: BURGUNDY, fontFamily: "Inter, sans-serif" }}>
+              {loadMessage}
+            </div>
+          </div>
+        ) : null}
+
+        {loadState === "ready" ? (
           <svg width="100%" height="100%" style={{ opacity: ready ? 1 : 0, transition: "opacity 0.3s" }}>
             <g transform={`translate(${view.x},${view.y}) scale(${view.scale})`}>
               {layout.edges.map((e) => (
@@ -731,45 +622,47 @@ export default function FamilyRegister() {
           </svg>
         ) : null}
 
-        {/* zoom controls */}
-        <div className="absolute bottom-4 right-4 flex flex-col rounded border overflow-hidden" style={{ borderColor: LINE, background: CARD }}>
-          <button
-            onClick={() => setView((v) => ({ ...v, scale: Math.min(2, v.scale + 0.15) }))}
-            className="p-2 border-b hover:opacity-70"
-            style={{ borderColor: LINE, color: INK }}
-          >
-            <ZoomIn size={15} />
-          </button>
-          <button
-            onClick={() => setView((v) => ({ ...v, scale: Math.max(0.3, v.scale - 0.15) }))}
-            className="p-2 border-b hover:opacity-70"
-            style={{ borderColor: LINE, color: INK }}
-          >
-            <ZoomOut size={15} />
-          </button>
-          <button onClick={fitView} className="p-2 hover:opacity-70" style={{ color: INK }}>
-            <RotateCcw size={15} />
-          </button>
-        </div>
+        {loadState === "ready" ? (
+          <>
+            <div className="absolute bottom-4 right-4 flex flex-col rounded border overflow-hidden" style={{ borderColor: LINE, background: CARD }}>
+              <button
+                onClick={() => setView((v) => ({ ...v, scale: Math.min(2, v.scale + 0.15) }))}
+                className="p-2 border-b hover:opacity-70"
+                style={{ borderColor: LINE, color: INK }}
+              >
+                <ZoomIn size={15} />
+              </button>
+              <button
+                onClick={() => setView((v) => ({ ...v, scale: Math.max(0.3, v.scale - 0.15) }))}
+                className="p-2 border-b hover:opacity-70"
+                style={{ borderColor: LINE, color: INK }}
+              >
+                <ZoomOut size={15} />
+              </button>
+              <button onClick={fitView} className="p-2 hover:opacity-70" style={{ color: INK }}>
+                <RotateCcw size={15} />
+              </button>
+            </div>
 
-        {/* legend */}
-        <div
-          className="absolute bottom-4 left-4 hidden md:flex items-center gap-4 text-[11px] px-3 py-2 rounded border"
-          style={{ borderColor: LINE, background: CARD, color: "#6B6350" }}
-        >
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-2.5 h-2.5" style={{ background: INK }} /> male line
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-2.5 h-2.5" style={{ background: BURGUNDY }} /> female line
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Crown size={12} color={BRASS} /> titled
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Shield size={12} color={INK} /> military
-          </span>
-        </div>
+            <div
+              className="absolute bottom-4 left-4 hidden md:flex items-center gap-4 text-[11px] px-3 py-2 rounded border"
+              style={{ borderColor: LINE, background: CARD, color: "#6B6350" }}
+            >
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5" style={{ background: INK }} /> male line
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5" style={{ background: BURGUNDY }} /> female line
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Crown size={12} color={BRASS} /> titled
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Shield size={12} color={INK} /> military
+              </span>
+            </div>
+          </>
+        ) : null}
 
         {selectedPerson ? (
           <RecordCard
@@ -784,25 +677,6 @@ export default function FamilyRegister() {
           />
         ) : null}
       </div>
-
-      {showUpload ? (
-        <UploadDrawer
-          onClose={() => setShowUpload(false)}
-          onReset={() => {
-            setPeople(SAMPLE_PEOPLE);
-            setMarriages(SAMPLE_MARRIAGES);
-            setLocations(SAMPLE_LOCATIONS);
-            setSelectedId(null);
-          }}
-          onLoad={({ people: p, marriages: m, locations: l }) => {
-            setPeople(p);
-            if (m.length) setMarriages(m);
-            if (l.length) setLocations(l);
-            setSelectedId(null);
-            setShowUpload(false);
-          }}
-        />
-      ) : null}
     </div>
   );
 }
