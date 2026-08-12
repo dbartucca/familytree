@@ -663,7 +663,7 @@ export default function FamilyRegister() {
       {/* canvas */}
       <div
         ref={containerRef}
-        className="relative flex-1 overflow-hidden"
+        className="relative flex-1 min-h-0 overflow-hidden"
         style={{
           background: "radial-gradient(circle at 1px 1px, rgba(35,42,59,0.09) 1px, transparent 0) " + PARCHMENT,
           backgroundSize: "22px 22px",
