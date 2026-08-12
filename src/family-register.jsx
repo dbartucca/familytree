@@ -533,7 +533,6 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
         ) : null}
         {person.description ? <Row label="Notes">{person.description}</Row> : null}
       </div>
-    </div>
   );
 }
 
