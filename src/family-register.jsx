@@ -373,7 +373,19 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
   return (
     <div
       className="fixed md:absolute inset-x-0 bottom-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[360px] max-h-[72vh] md:max-h-none overflow-y-auto z-20 rounded-t-xl md:rounded-none border-t md:border-t-0 md:border-l"
-      style={{ background: CARD, borderColor: LINE }}
+      style={{
+        background: CARD,
+        borderColor: LINE,
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: "360px",
+        maxHeight: "none",
+        overflowY: "auto",
+        zIndex: 20,
+        borderLeft: `1px solid ${LINE}`,
+      }}
     >
       <div className="sticky top-0 flex items-start justify-between px-5 pt-4 pb-3 border-b" style={{ background: CARD, borderColor: LINE }}>
         <div>
