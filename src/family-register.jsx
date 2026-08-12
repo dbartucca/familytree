@@ -35,7 +35,7 @@ function fetchCsv(url) {
 /* ---------------------------------------------------------------------- */
 /*  LAYOUT CONSTANTS                                                       */
 /* ---------------------------------------------------------------------- */
-const NODE_W = 176;
+const NODE_W = 190;
 const NODE_H = 66;
 const COL_SPACING = 116;
 const ROW_HEIGHT = 190;
@@ -48,6 +48,18 @@ function fullName(p) {
   if (!p) return "Unknown";
   const parts = [p.first_name, p.middle_name, p.last_name].filter(Boolean);
   let n = parts.join(" ");
+  if (p.suffix) n += ` ${p.suffix}`;
+  return n || "Unnamed";
+}
+
+// Shorter form for the compact tree cards: middle name collapsed to an initial
+// e.g. "Delia Maureen Bartucca" -> "Delia M. Bartucca"
+function shortName(p) {
+  if (!p) return "Unknown";
+  const parts = [p.first_name];
+  if (p.middle_name) parts.push(`${p.middle_name.trim().charAt(0).toUpperCase()}.`);
+  parts.push(p.last_name);
+  let n = parts.filter(Boolean).join(" ");
   if (p.suffix) n += ` ${p.suffix}`;
   return n || "Unnamed";
 }
@@ -309,7 +321,7 @@ function PersonNode({ person, pos, selected, onSelect }) {
       />
       <rect x={0} y={0} width={4} height={NODE_H} fill={accent} />
       <text x={16} y={24} fontFamily="Fraunces, serif" fontWeight={600} fontSize={14} fill={INK}>
-        {fullName(person).length > 20 ? fullName(person).slice(0, 19) + "\u2026" : fullName(person)}
+        {shortName(person).length > 22 ? shortName(person).slice(0, 21) + "\u2026" : shortName(person)}
       </text>
       <text x={16} y={41} fontFamily="'IBM Plex Mono', monospace" fontSize={10.5} fill="#6B6350">
         {lifespanLabel(person)}
@@ -583,7 +595,7 @@ export default function FamilyRegister() {
 
   return (
     <div
-      className="w-full h-[640px] max-h-[85vh] flex flex-col overflow-hidden select-none"
+      className="w-full h-screen flex flex-col overflow-hidden select-none"
       style={{ background: PARCHMENT, fontFamily: "Inter, sans-serif" }}
     >
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');`}</style>
