@@ -406,6 +406,12 @@ function PersonNode({ person, pos, selected, onSelect }) {
 /*  RECORD CARD (side panel)                                               */
 /* ---------------------------------------------------------------------- */
 function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, childrenMap, onJump, onClose }) {
+  const [hasPhoto, setHasPhoto] = useState(true);
+
+  useEffect(() => {
+    setHasPhoto(true);
+  }, [person?.id]);
+
   if (!person) return null;
   const birthLoc = locationLabel(locationsById.get(person.birth_location_id));
   const deathLoc = locationLabel(locationsById.get(person.death_location_id));
