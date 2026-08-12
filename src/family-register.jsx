@@ -471,17 +471,17 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
         </button>
       </div>
       
-        <div className="flex justify-center mb-5">
-          <img
-            src={`${import.meta.env.BASE_URL}photos/${person.id}.jpg`}
-            alt={fullName(person)}
-            className="w-36 h-36 object-cover rounded-sm border"
-            style={{
-              borderColor: LINE,
-              background: PARCHMENT,
-            }}
-          />
-        </div>
+      <div className="flex justify-center mb-5">
+        <img
+          src={`${import.meta.env.BASE_URL}photos/${person.id}.jpg`}
+          alt={fullName(person)}
+          className="w-[140px] h-[170px] object-cover rounded-sm border"
+          style={{
+            borderColor: LINE,
+            background: PARCHMENT,
+          }}
+        />
+      </div>
         <Row label="Born">
           {[fullDate(person.birth_year, person.birth_month, person.birth_day), birthLoc].filter(Boolean).join(" \u00b7 ") || "Unknown"}
         </Row>
