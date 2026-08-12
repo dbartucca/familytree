@@ -348,7 +348,7 @@ function PersonNode({ person, pos, selected, onSelect }) {
 
       {/* Name */}
       <text
-        x={68}
+        x={hasPhoto ? 68 : 18}
         y={24}
         fontFamily="Fraunces, serif"
         fontWeight={600}
@@ -362,7 +362,7 @@ function PersonNode({ person, pos, selected, onSelect }) {
 
       {/* Lifespan */}
       <text
-        x={68}
+        x={hasPhoto ? 68 : 18}
         y={41}
         fontFamily="'IBM Plex Mono', monospace"
         fontSize={10.5}
@@ -374,7 +374,7 @@ function PersonNode({ person, pos, selected, onSelect }) {
       {/* Title */}
       {person.tittle ? (
         <text
-          x={68}
+          x={hasPhoto ? 68 : 18}
           y={56}
           fontFamily="Inter, sans-serif"
           fontStyle="italic"
