@@ -502,7 +502,7 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
         />
       </div>
     ) : null}
-      </div>
+      
         <Row label="Born">
           {[fullDate(person.birth_year, person.birth_month, person.birth_day), birthLoc].filter(Boolean).join(" \u00b7 ") || "Unknown"}
         </Row>
