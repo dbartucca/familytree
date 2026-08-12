@@ -595,11 +595,15 @@ export default function FamilyRegister() {
 
   return (
     <div
-      className="w-full flex flex-col overflow-hidden select-none"
+      className="w-full h-screen flex flex-col overflow-hidden select-none"
       style={{
         background: PARCHMENT,
         fontFamily: "Inter, sans-serif",
+        width: "100%",
         height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
       }}
     >
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');`}</style>
