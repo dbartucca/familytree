@@ -25,6 +25,7 @@ function fetchCsv(url) {
       download: true,
       header: true,
       skipEmptyLines: true,
+      transformHeader: (h) => h.replace(/^\uFEFF/, "").trim(),
       complete: (res) => resolve(res.data),
       error: () => resolve(null),
     });
