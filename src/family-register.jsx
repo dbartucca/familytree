@@ -373,7 +373,19 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
   return (
     <div
       className="fixed md:absolute inset-x-0 bottom-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[360px] max-h-[72vh] md:max-h-none overflow-y-auto z-20 rounded-t-xl md:rounded-none border-t md:border-t-0 md:border-l"
-      style={{ background: CARD, borderColor: LINE }}
+      style={{
+        background: CARD,
+        borderColor: LINE,
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: "360px",
+        maxHeight: "none",
+        overflowY: "auto",
+        zIndex: 20,
+        borderLeft: `1px solid ${LINE}`,
+      }}
     >
       <div className="sticky top-0 flex items-start justify-between px-5 pt-4 pb-3 border-b" style={{ background: CARD, borderColor: LINE }}>
         <div>
@@ -595,11 +607,15 @@ export default function FamilyRegister() {
 
   return (
     <div
-      className="w-full flex flex-col overflow-hidden select-none"
+      className="w-full h-screen flex flex-col overflow-hidden select-none"
       style={{
         background: PARCHMENT,
         fontFamily: "Inter, sans-serif",
+        width: "100%",
         height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
       }}
     >
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');`}</style>
@@ -663,11 +679,15 @@ export default function FamilyRegister() {
       {/* canvas */}
       <div
         ref={containerRef}
-        className="relative flex-1 overflow-hidden"
+        className="relative flex-1 min-h-0 overflow-hidden"
         style={{
           background: "radial-gradient(circle at 1px 1px, rgba(35,42,59,0.09) 1px, transparent 0) " + PARCHMENT,
           backgroundSize: "22px 22px",
           cursor: panState.current.dragging ? "grabbing" : "grab",
+          position: "relative",
+          flex: "1 1 0%",
+          minHeight: 0,
+          overflow: "hidden",
         }}
         onWheel={loadState === "ready" ? onWheel : undefined}
         onPointerDown={loadState === "ready" ? onPointerDown : undefined}
