@@ -14,6 +14,40 @@ const LINE = "#C9BFA4";
 
 const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');`;
 
+// Plain CSS (not Tailwind arbitrary classes) for the record panel, so its
+// docked-right-360px-on-desktop / bottom-sheet-on-mobile behavior can't
+// silently break if an arbitrary-value utility class fails to generate.
+const PANEL_CSS = `
+.family-record-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  width: auto;
+  max-height: 72vh;
+  overflow-y: auto;
+  z-index: 20;
+  border-top: 1px solid ${LINE};
+  border-left: none;
+  border-radius: 12px 12px 0 0;
+}
+@media (min-width: 768px) {
+  .family-record-panel {
+    position: absolute;
+    left: auto;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 360px;
+    max-height: none;
+    border-top: none;
+    border-left: 1px solid ${LINE};
+    border-radius: 0;
+  }
+}
+`;
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /* ---------------------------------------------------------------------- */
@@ -532,8 +566,8 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
   if (!person) return null;
   return (
     <div
-      className="fixed md:absolute inset-x-0 bottom-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[360px] max-h-[72vh] md:max-h-none overflow-y-auto z-20 rounded-t-xl md:rounded-none border-t md:border-t-0 md:border-l"
-      style={{ background: CARD, borderColor: LINE }}
+      className="family-record-panel"
+      style={{ background: CARD }}
     >
       <div className="sticky top-0 flex items-start justify-between px-5 pt-4 pb-3 border-b" style={{ background: CARD, borderColor: LINE }}>
         <div>
@@ -617,7 +651,7 @@ function EntryPage({ people, locationsById, peopleById, spouseMap, marriageOf, c
               setSelectedId(null);
             }}
             onFocus={() => setShowResults(true)}
-            placeholder="Find a name\u2026"
+            placeholder="Find a name…"
             className="text-[14px] bg-transparent outline-none w-full"
             style={{ color: INK, fontFamily: "Inter, sans-serif" }}
           />
@@ -973,9 +1007,7 @@ export default function FamilyRegister() {
 
   return (
     <div className="w-full flex flex-col overflow-hidden select-none" style={{ height: "100vh", background: PARCHMENT, fontFamily: "Inter, sans-serif" }}>
-      <style>{`${FONT_IMPORT}`}</style>
-
-      {/* header */}
+      <style>{`${FONT_IMPORT}${PANEL_CSS}`}</style>
       <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b shrink-0" style={{ borderColor: LINE }}>
         <div className="flex items-center gap-3">
           <button
@@ -1007,7 +1039,7 @@ export default function FamilyRegister() {
                 setShowSearchResults(true);
               }}
               onFocus={() => setShowSearchResults(true)}
-              placeholder="Find a name\u2026"
+              placeholder="Find a name…"
               className="text-[13px] bg-transparent outline-none w-28 md:w-40"
               style={{ color: INK }}
             />
