@@ -82,6 +82,64 @@ function toNum(v) {
 }
 
 /* ---------------------------------------------------------------------- */
+/*  DATA SANITIZER — flags self-parenting, self-marriage, and ancestry     */
+/*  cycles before the layout ever runs                                    */
+/* ---------------------------------------------------------------------- */
+function validateFamilyGraph(people, marriages) {
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const issues = [];
+
+  people.forEach((p) => {
+    if (p.mother_id && p.mother_id === p.id) {
+      issues.push({ type: "Self-parent (mother_id)", ids: [p.id], detail: `${fullName(p)} (id: ${p.id}) lists themself as mother_id.` });
+    }
+    if (p.father_id && p.father_id === p.id) {
+      issues.push({ type: "Self-parent (father_id)", ids: [p.id], detail: `${fullName(p)} (id: ${p.id}) lists themself as father_id.` });
+    }
+  });
+
+  marriages.forEach((m) => {
+    if (m.husband && m.wife && m.husband === m.wife) {
+      const p = byId.get(m.husband);
+      issues.push({ type: "Self-marriage", ids: [m.husband], detail: `${p ? fullName(p) : "id " + m.husband} (id: ${m.husband}) is listed as married to themself.` });
+    }
+  });
+
+  const state = new Map(); // id -> 0 unvisited, 1 in-progress, 2 done
+  const path = [];
+  const seenCycles = new Set();
+  function dfs(id) {
+    if (!byId.has(id)) return;
+    const s = state.get(id) || 0;
+    if (s === 2) return;
+    if (s === 1) {
+      const cycleStart = path.indexOf(id);
+      const cycle = path.slice(cycleStart).concat(id);
+      const key = [...cycle].sort().join(",");
+      if (!seenCycles.has(key)) {
+        seenCycles.add(key);
+        issues.push({
+          type: "Ancestry cycle",
+          ids: cycle,
+          detail: `Cycle in parentage: ${cycle.map((cid) => `${fullName(byId.get(cid))} (id: ${cid})`).join(" \u2192 ")}`,
+        });
+      }
+      return;
+    }
+    state.set(id, 1);
+    path.push(id);
+    const p = byId.get(id);
+    if (p.father_id) dfs(p.father_id);
+    if (p.mother_id) dfs(p.mother_id);
+    path.pop();
+    state.set(id, 2);
+  }
+  people.forEach((p) => dfs(p.id));
+
+  return issues;
+}
+
+/* ---------------------------------------------------------------------- */
 /*  LAYOUT ALGORITHM                                                       */
 /* ---------------------------------------------------------------------- */
 function buildLayout(people, marriages) {
@@ -90,7 +148,7 @@ function buildLayout(people, marriages) {
   const childrenMap = new Map();
   people.forEach((p) => {
     [p.mother_id, p.father_id].forEach((pid) => {
-      if (pid && byId.has(pid)) {
+      if (pid && pid !== p.id && byId.has(pid)) {
         if (!childrenMap.has(pid)) childrenMap.set(pid, []);
         childrenMap.get(pid).push(p.id);
       }
@@ -387,8 +445,9 @@ export default function FamilyRegister() {
   const [people, setPeople] = useState([]);
   const [marriages, setMarriages] = useState([]);
   const [locations, setLocations] = useState([]);
-  const [loadState, setLoadState] = useState("loading"); // loading | ready | error
+  const [loadState, setLoadState] = useState("loading"); // loading | ready | error | invalid
   const [loadMessage, setLoadMessage] = useState("");
+  const [issues, setIssues] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [search, setSearch] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -428,6 +487,13 @@ export default function FamilyRegister() {
         .filter((m) => m.husband && m.wife)
         .map((m) => ({ ...m, year: toNum(m.year), month: toNum(m.month), day: toNum(m.day) }));
       const cleanLocations = locationsRaw || [];
+
+      const foundIssues = validateFamilyGraph(cleanPeople, cleanMarriages);
+      if (foundIssues.length) {
+        setIssues(foundIssues);
+        setLoadState("invalid");
+        return;
+      }
 
       setPeople(cleanPeople);
       setMarriages(cleanMarriages);
@@ -529,7 +595,13 @@ export default function FamilyRegister() {
             The Family Register
           </h1>
           <div className="text-[11px] mt-1 tracking-wide" style={{ color: "#8A8265", fontFamily: "'IBM Plex Mono', monospace" }}>
-            {loadState === "ready" ? `${people.length} recorded lives \u00b7 ${genCount} generations` : loadState === "loading" ? "Loading records\u2026" : "No records loaded"}
+            {loadState === "ready"
+              ? `${people.length} recorded lives \u00b7 ${genCount} generations`
+              : loadState === "loading"
+              ? "Loading records\u2026"
+              : loadState === "invalid"
+              ? `${issues.length} data issue${issues.length === 1 ? "" : "s"} found`
+              : "No records loaded"}
           </div>
         </div>
         {loadState === "ready" ? (
@@ -598,6 +670,31 @@ export default function FamilyRegister() {
           <div className="absolute inset-0 flex items-center justify-center px-8">
             <div className="max-w-md text-center text-[13.5px] leading-relaxed" style={{ color: BURGUNDY, fontFamily: "Inter, sans-serif" }}>
               {loadMessage}
+            </div>
+          </div>
+        ) : null}
+
+        {loadState === "invalid" ? (
+          <div className="absolute inset-0 overflow-y-auto px-6 py-8 flex justify-center">
+            <div className="max-w-2xl w-full">
+              <div className="text-[14px] font-semibold mb-1" style={{ color: BURGUNDY, fontFamily: "Fraunces, serif" }}>
+                The tree can't be built until these are fixed
+              </div>
+              <div className="text-[12.5px] mb-4" style={{ color: "#6B6350", fontFamily: "Inter, sans-serif" }}>
+                Self-parenting, self-marriage, and ancestry cycles aren't allowed &mdash; fix the source CSVs and reload.
+              </div>
+              <div className="flex flex-col gap-2">
+                {issues.map((issue, i) => (
+                  <div key={i} className="rounded border px-3 py-2.5" style={{ borderColor: LINE, background: CARD }}>
+                    <div className="text-[10px] tracking-[0.12em] uppercase font-medium mb-1" style={{ color: BRASS, fontFamily: "Inter, sans-serif" }}>
+                      {issue.type}
+                    </div>
+                    <div className="text-[13px] leading-snug" style={{ color: INK, fontFamily: "'IBM Plex Mono', monospace" }}>
+                      {issue.detail}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         ) : null}
