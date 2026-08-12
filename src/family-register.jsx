@@ -301,6 +301,11 @@ function buildLayout(people, marriages) {
 function PersonNode({ person, pos, selected, onSelect }) {
   const isFemale = person.gender === "F";
   const accent = isFemale ? BURGUNDY : INK;
+  const [hasPhoto, setHasPhoto] = useState(true);
+
+  useEffect(() => {
+    setHasPhoto(true);
+  }, [person?.id]);
 
   return (
     <g
@@ -328,15 +333,18 @@ function PersonNode({ person, pos, selected, onSelect }) {
       {/* Gender accent */}
       <rect x={0} y={0} width={4} height={NODE_H} fill={accent} />
 
-      {/* Portrait */}
-      <image
-        href={`${import.meta.env.BASE_URL}photos/${person.id}.jpg`}
-        x={10}
-        y={9}
-        width={48}
-        height={48}
-        preserveAspectRatio="xMidYMid slice"
-      />
+      {/* Portrait — only show if the photo exists */}
+      {hasPhoto ? (
+        <image
+          href={`${import.meta.env.BASE_URL}photos/${person.id}.jpg`}
+          x={10}
+          y={9}
+          width={48}
+          height={48}
+          preserveAspectRatio="xMidYMid slice"
+          onError={() => setHasPhoto(false)}
+        />
+      ) : null}
 
       {/* Name */}
       <text
