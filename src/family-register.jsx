@@ -301,6 +301,12 @@ function buildLayout(people, marriages) {
 function PersonNode({ person, pos, selected, onSelect }) {
   const isFemale = person.gender === "F";
   const accent = isFemale ? BURGUNDY : INK;
+  const [hasPhoto, setHasPhoto] = useState(true);
+
+  useEffect(() => {
+    setHasPhoto(true);
+  }, [person?.id]);
+
   return (
     <g
       transform={`translate(${pos.x - NODE_W / 2}, ${pos.y - NODE_H / 2})`}
@@ -317,22 +323,89 @@ function PersonNode({ person, pos, selected, onSelect }) {
         fill={CARD}
         stroke={selected ? BRASS : LINE}
         strokeWidth={selected ? 2.25 : 1}
-        style={{ filter: selected ? "drop-shadow(0 3px 6px rgba(35,42,59,0.28))" : "drop-shadow(0 1px 2px rgba(35,42,59,0.12))" }}
+        style={{
+          filter: selected
+            ? "drop-shadow(0 3px 6px rgba(35,42,59,0.28))"
+            : "drop-shadow(0 1px 2px rgba(35,42,59,0.12))",
+        }}
       />
+
+      {/* Gender accent */}
       <rect x={0} y={0} width={4} height={NODE_H} fill={accent} />
-      <text x={16} y={24} fontFamily="Fraunces, serif" fontWeight={600} fontSize={14} fill={INK}>
-        {shortName(person).length > 22 ? shortName(person).slice(0, 21) + "\u2026" : shortName(person)}
+
+      {/* Portrait — only show if the photo exists */}
+      {hasPhoto ? (
+        <image
+          href={`${import.meta.env.BASE_URL}photos/${person.id}.jpg`}
+          x={10}
+          y={9}
+          width={48}
+          height={48}
+          preserveAspectRatio="xMidYMid slice"
+          onError={() => setHasPhoto(false)}
+        />
+      ) : null}
+
+      {/* Name */}
+      <text
+        x={hasPhoto ? 68 : 18}
+        y={24}
+        fontFamily="Fraunces, serif"
+        fontWeight={600}
+        fontSize={14}
+        fill={INK}
+      >
+        {shortName(person).length > 17
+          ? shortName(person).slice(0, 16) + "…"
+          : shortName(person)}
       </text>
-      <text x={16} y={41} fontFamily="'IBM Plex Mono', monospace" fontSize={10.5} fill="#6B6350">
+
+      {/* Lifespan */}
+      <text
+        x={hasPhoto ? 68 : 18}
+        y={41}
+        fontFamily="'IBM Plex Mono', monospace"
+        fontSize={10.5}
+        fill="#6B6350"
+      >
         {lifespanLabel(person)}
       </text>
+
+      {/* Title */}
       {person.tittle ? (
-        <text x={16} y={56} fontFamily="Inter, sans-serif" fontStyle="italic" fontSize={10} fill={BRASS}>
-          {person.tittle.length > 22 ? person.tittle.slice(0, 21) + "\u2026" : person.tittle}
+        <text
+          x={hasPhoto ? 68 : 18}
+          y={56}
+          fontFamily="Inter, sans-serif"
+          fontStyle="italic"
+          fontSize={10}
+          fill={BRASS}
+        >
+          {person.tittle.length > 17
+            ? person.tittle.slice(0, 16) + "…"
+            : person.tittle}
         </text>
       ) : null}
-      {person.tittle ? <Crown x={NODE_W - 22} y={8} size={13} color={BRASS} strokeWidth={2} /> : null}
-      {person.military ? <Shield x={NODE_W - (person.tittle ? 40 : 22)} y={8} size={13} color={accent} strokeWidth={2} /> : null}
+
+      {person.tittle ? (
+        <Crown
+          x={NODE_W - 22}
+          y={8}
+          size={13}
+          color={BRASS}
+          strokeWidth={2}
+        />
+      ) : null}
+
+      {person.military ? (
+        <Shield
+          x={NODE_W - (person.tittle ? 40 : 22)}
+          y={8}
+          size={13}
+          color={accent}
+          strokeWidth={2}
+        />
+      ) : null}
     </g>
   );
 }
@@ -341,6 +414,12 @@ function PersonNode({ person, pos, selected, onSelect }) {
 /*  RECORD CARD (side panel)                                               */
 /* ---------------------------------------------------------------------- */
 function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, childrenMap, onJump, onClose }) {
+  const [hasPhoto, setHasPhoto] = useState(true);
+
+  useEffect(() => {
+    setHasPhoto(true);
+  }, [person?.id]);
+
   if (!person) return null;
   const birthLoc = locationLabel(locationsById.get(person.birth_location_id));
   const deathLoc = locationLabel(locationsById.get(person.death_location_id));
@@ -405,8 +484,33 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
           <X size={18} />
         </button>
       </div>
-
-      <div className="px-5 py-4">
+      
+    {hasPhoto ? (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          marginBottom: "20px",
+        }}
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}photos/${person.id}.jpg`}
+          alt={fullName(person)}
+          onError={() => setHasPhoto(false)}
+          style={{
+            width: "140px",
+            height: "170px",
+            maxWidth: "140px",
+            maxHeight: "170px",
+            objectFit: "cover",
+            display: "block",
+            border: `1px solid ${LINE}`,
+            background: PARCHMENT,
+          }}
+        />
+      </div>
+    ) : null}
+      
         <Row label="Born">
           {[fullDate(person.birth_year, person.birth_month, person.birth_day), birthLoc].filter(Boolean).join(" \u00b7 ") || "Unknown"}
         </Row>
@@ -458,7 +562,6 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
         ) : null}
         {person.description ? <Row label="Notes">{person.description}</Row> : null}
       </div>
-    </div>
   );
 }
 
