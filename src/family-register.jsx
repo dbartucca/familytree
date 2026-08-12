@@ -477,6 +477,7 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
         </button>
       </div>
       
+    {hasPhoto ? (
       <div
         style={{
           display: "flex",
@@ -487,6 +488,7 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
         <img
           src={`${import.meta.env.BASE_URL}photos/${person.id}.jpg`}
           alt={fullName(person)}
+          onError={() => setHasPhoto(false)}
           style={{
             width: "140px",
             height: "170px",
@@ -498,6 +500,8 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
             background: PARCHMENT,
           }}
         />
+      </div>
+    ) : null}
       </div>
         <Row label="Born">
           {[fullDate(person.birth_year, person.birth_month, person.birth_day), birthLoc].filter(Boolean).join(" \u00b7 ") || "Unknown"}
