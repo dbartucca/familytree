@@ -471,13 +471,24 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
         </button>
       </div>
       
-      <div className="flex justify-center mb-5">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          marginBottom: "20px",
+        }}
+      >
         <img
           src={`${import.meta.env.BASE_URL}photos/${person.id}.jpg`}
           alt={fullName(person)}
-          className="w-[140px] h-[170px] object-cover rounded-sm border"
           style={{
-            borderColor: LINE,
+            width: "140px",
+            height: "170px",
+            maxWidth: "140px",
+            maxHeight: "170px",
+            objectFit: "cover",
+            display: "block",
+            border: `1px solid ${LINE}`,
             background: PARCHMENT,
           }}
         />
