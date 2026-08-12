@@ -672,6 +672,10 @@ export default function FamilyRegister() {
           background: "radial-gradient(circle at 1px 1px, rgba(35,42,59,0.09) 1px, transparent 0) " + PARCHMENT,
           backgroundSize: "22px 22px",
           cursor: panState.current.dragging ? "grabbing" : "grab",
+          position: "relative",
+          flex: "1 1 0%",
+          minHeight: 0,
+          overflow: "hidden",
         }}
         onWheel={loadState === "ready" ? onWheel : undefined}
         onPointerDown={loadState === "ready" ? onPointerDown : undefined}
