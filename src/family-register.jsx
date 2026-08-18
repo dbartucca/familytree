@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import Papa from "papaparse";
-import { Search, X, ZoomIn, ZoomOut, Crown, Shield, RotateCcw, ChevronRight, ArrowLeft, Users, Network } from "lucide-react";
+import { Search, X, ZoomIn, ZoomOut, Crown, Shield, RotateCcw, ChevronRight } from "lucide-react";
 
 /* ---------------------------------------------------------------------- */
 /*  TOKENS                                                                 */
@@ -11,42 +11,6 @@ const CARD = "#F8F3E7";
 const BRASS = "#B8863C";
 const BURGUNDY = "#7A3B3F";
 const LINE = "#C9BFA4";
-
-const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');`;
-
-// Plain CSS (not Tailwind arbitrary classes) for the record panel, so its
-// docked-right-360px-on-desktop / bottom-sheet-on-mobile behavior can't
-// silently break if an arbitrary-value utility class fails to generate.
-const PANEL_CSS = `
-.family-record-panel {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  top: auto;
-  width: auto;
-  max-height: 72vh;
-  overflow-y: auto;
-  z-index: 20;
-  border-top: 1px solid ${LINE};
-  border-left: none;
-  border-radius: 12px 12px 0 0;
-}
-@media (min-width: 768px) {
-  .family-record-panel {
-    position: absolute;
-    left: auto;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 360px;
-    max-height: none;
-    border-top: none;
-    border-left: 1px solid ${LINE};
-    border-radius: 0;
-  }
-}
-`;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -129,10 +93,6 @@ function toNum(v) {
   return Number.isNaN(n) ? "" : n;
 }
 
-function photoUrl(id) {
-  return `${import.meta.env.BASE_URL}photos/${id}.jpg`;
-}
-
 /* ---------------------------------------------------------------------- */
 /*  DATA SANITIZER — flags self-parenting, self-marriage, and ancestry     */
 /*  cycles before the layout ever runs                                    */
@@ -192,9 +152,9 @@ function validateFamilyGraph(people, marriages) {
 }
 
 /* ---------------------------------------------------------------------- */
-/*  RELATION MAPS — shared between layout and the relatives filter         */
+/*  LAYOUT ALGORITHM                                                       */
 /* ---------------------------------------------------------------------- */
-function buildRelationMaps(people, marriages) {
+function buildLayout(people, marriages) {
   const byId = new Map(people.map((p) => [p.id, p]));
 
   const childrenMap = new Map();
@@ -218,51 +178,6 @@ function buildRelationMaps(people, marriages) {
     spouseMap.get(m.wife).push(m.husband);
     marriageOf.set(`${m.husband}|${m.wife}`, m);
   });
-
-  return { byId, childrenMap, spouseMap, marriageOf };
-}
-
-// Ancestors, descendants, and their spouses — everyone connected to this
-// person through a direct blood or marriage line.
-function getRelativeIds(personId, byId, childrenMap, spouseMap) {
-  const result = new Set();
-  if (!byId.has(personId)) return result;
-  result.add(personId);
-  (spouseMap.get(personId) || []).forEach((s) => result.add(s));
-
-  function addAncestors(id) {
-    const p = byId.get(id);
-    if (!p) return;
-    [p.mother_id, p.father_id].forEach((pid) => {
-      if (pid && byId.has(pid) && !result.has(pid)) {
-        result.add(pid);
-        (spouseMap.get(pid) || []).forEach((s) => result.add(s));
-        addAncestors(pid);
-      }
-    });
-  }
-  addAncestors(personId);
-
-  function addDescendants(id) {
-    (childrenMap.get(id) || []).forEach((cid) => {
-      if (!result.has(cid)) {
-        result.add(cid);
-        (spouseMap.get(cid) || []).forEach((s) => result.add(s));
-        addDescendants(cid);
-      }
-    });
-  }
-  addDescendants(personId);
-  (spouseMap.get(personId) || []).forEach((s) => addDescendants(s));
-
-  return result;
-}
-
-/* ---------------------------------------------------------------------- */
-/*  LAYOUT ALGORITHM                                                       */
-/* ---------------------------------------------------------------------- */
-function buildLayout(people, marriages) {
-  const { byId, childrenMap, spouseMap, marriageOf } = buildRelationMaps(people, marriages);
 
   const genMemo = new Map();
   function genOf(id) {
@@ -392,8 +307,6 @@ function PersonNode({ person, pos, selected, onSelect }) {
     setHasPhoto(true);
   }, [person?.id]);
 
-  const textX = hasPhoto ? 68 : 18;
-
   return (
     <g
       transform={`translate(${pos.x - NODE_W / 2}, ${pos.y - NODE_H / 2})`}
@@ -410,13 +323,20 @@ function PersonNode({ person, pos, selected, onSelect }) {
         fill={CARD}
         stroke={selected ? BRASS : LINE}
         strokeWidth={selected ? 2.25 : 1}
-        style={{ filter: selected ? "drop-shadow(0 3px 6px rgba(35,42,59,0.28))" : "drop-shadow(0 1px 2px rgba(35,42,59,0.12))" }}
+        style={{
+          filter: selected
+            ? "drop-shadow(0 3px 6px rgba(35,42,59,0.28))"
+            : "drop-shadow(0 1px 2px rgba(35,42,59,0.12))",
+        }}
       />
+
+      {/* Gender accent */}
       <rect x={0} y={0} width={4} height={NODE_H} fill={accent} />
 
+      {/* Portrait — only show if the photo exists */}
       {hasPhoto ? (
         <image
-          href={photoUrl(person.id)}
+          href={`${import.meta.env.BASE_URL}photos/${person.id}.jpg`}
           x={10}
           y={9}
           width={48}
@@ -426,41 +346,100 @@ function PersonNode({ person, pos, selected, onSelect }) {
         />
       ) : null}
 
-      <text x={textX} y={24} fontFamily="Fraunces, serif" fontWeight={600} fontSize={14} fill={INK}>
-        {shortName(person).length > 17 ? shortName(person).slice(0, 16) + "\u2026" : shortName(person)}
+      {/* Name */}
+      <text
+        x={hasPhoto ? 68 : 18}
+        y={24}
+        fontFamily="Fraunces, serif"
+        fontWeight={600}
+        fontSize={14}
+        fill={INK}
+      >
+        {shortName(person).length > 17
+          ? shortName(person).slice(0, 16) + "…"
+          : shortName(person)}
       </text>
-      <text x={textX} y={41} fontFamily="'IBM Plex Mono', monospace" fontSize={10.5} fill="#6B6350">
+
+      {/* Lifespan */}
+      <text
+        x={hasPhoto ? 68 : 18}
+        y={41}
+        fontFamily="'IBM Plex Mono', monospace"
+        fontSize={10.5}
+        fill="#6B6350"
+      >
         {lifespanLabel(person)}
       </text>
+
+      {/* Title */}
       {person.tittle ? (
-        <text x={textX} y={56} fontFamily="Inter, sans-serif" fontStyle="italic" fontSize={10} fill={BRASS}>
-          {person.tittle.length > 17 ? person.tittle.slice(0, 16) + "\u2026" : person.tittle}
+        <text
+          x={hasPhoto ? 68 : 18}
+          y={56}
+          fontFamily="Inter, sans-serif"
+          fontStyle="italic"
+          fontSize={10}
+          fill={BRASS}
+        >
+          {person.tittle.length > 17
+            ? person.tittle.slice(0, 16) + "…"
+            : person.tittle}
         </text>
       ) : null}
-      {person.tittle ? <Crown x={NODE_W - 22} y={8} size={13} color={BRASS} strokeWidth={2} /> : null}
-      {person.military ? <Shield x={NODE_W - (person.tittle ? 40 : 22)} y={8} size={13} color={accent} strokeWidth={2} /> : null}
+
+      {person.tittle ? (
+        <Crown
+          x={NODE_W - 22}
+          y={8}
+          size={13}
+          color={BRASS}
+          strokeWidth={2}
+        />
+      ) : null}
+
+      {person.military ? (
+        <Shield
+          x={NODE_W - (person.tittle ? 40 : 22)}
+          y={8}
+          size={13}
+          color={accent}
+          strokeWidth={2}
+        />
+      ) : null}
     </g>
   );
 }
 
 /* ---------------------------------------------------------------------- */
-/*  SHARED RECORD DETAILS (used by the tree side panel and the entry page) */
+/*  RECORD CARD (side panel)                                               */
 /* ---------------------------------------------------------------------- */
-function DetailRow({ label, children }) {
-  return children ? (
-    <div className="mb-3">
-      <div className="text-[10px] tracking-[0.14em] uppercase font-medium" style={{ color: BRASS, fontFamily: "Inter, sans-serif" }}>
-        {label}
-      </div>
-      <div className="text-[13.5px] leading-snug mt-0.5" style={{ color: INK, fontFamily: "Inter, sans-serif" }}>
-        {children}
-      </div>
-    </div>
-  ) : null;
-}
+function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, childrenMap, onJump, onClose }) {
+  const [hasPhoto, setHasPhoto] = useState(true);
 
-function PersonLink({ id, peopleById, onJump }) {
-  return (
+  useEffect(() => {
+    setHasPhoto(true);
+  }, [person?.id]);
+
+  if (!person) return null;
+  const birthLoc = locationLabel(locationsById.get(person.birth_location_id));
+  const deathLoc = locationLabel(locationsById.get(person.death_location_id));
+  const spouses = spouseMap.get(person.id) || [];
+  const kids = childrenMap.get(person.id) || [];
+  const parents = [person.father_id, person.mother_id].filter((id) => peopleById.has(id));
+
+  const Row = ({ label, children }) =>
+    children ? (
+      <div className="mb-3">
+        <div className="text-[10px] tracking-[0.14em] uppercase font-medium" style={{ color: BRASS, fontFamily: "Inter, sans-serif" }}>
+          {label}
+        </div>
+        <div className="text-[13.5px] leading-snug mt-0.5" style={{ color: INK, fontFamily: "Inter, sans-serif" }}>
+          {children}
+        </div>
+      </div>
+    ) : null;
+
+  const Link = ({ id }) => (
     <button
       onClick={() => onJump(id)}
       className="inline-flex items-center gap-0.5 underline decoration-dotted underline-offset-2 hover:opacity-70"
@@ -469,105 +448,23 @@ function PersonLink({ id, peopleById, onJump }) {
       {fullName(peopleById.get(id))}
     </button>
   );
-}
 
-function PersonPhoto({ person }) {
-  const [hasPhoto, setHasPhoto] = useState(true);
-  useEffect(() => {
-    setHasPhoto(true);
-  }, [person?.id]);
-  if (!person || !hasPhoto) return null;
-  return (
-    <div className="flex justify-center px-5 pt-4">
-      <img
-        src={photoUrl(person.id)}
-        alt={fullName(person)}
-        onError={() => setHasPhoto(false)}
-        style={{
-          width: "140px",
-          height: "170px",
-          objectFit: "cover",
-          display: "block",
-          border: `1px solid ${LINE}`,
-          background: PARCHMENT,
-        }}
-      />
-    </div>
-  );
-}
-
-function PersonDetailRows({ person, locationsById, peopleById, spouseMap, marriageOf, childrenMap, onJump }) {
-  const birthLoc = locationLabel(locationsById.get(person.birth_location_id));
-  const deathLoc = locationLabel(locationsById.get(person.death_location_id));
-  const spouses = spouseMap.get(person.id) || [];
-  const kids = childrenMap.get(person.id) || [];
-  const parents = [person.father_id, person.mother_id].filter((id) => peopleById.has(id));
-
-  return (
-    <>
-      <DetailRow label="Born">
-        {[fullDate(person.birth_year, person.birth_month, person.birth_day), birthLoc].filter(Boolean).join(" \u00b7 ") || "Unknown"}
-      </DetailRow>
-      <DetailRow label="Died">
-        {person.death_year ? [fullDate(person.death_year, person.death_month, person.death_day), deathLoc].filter(Boolean).join(" \u00b7 ") : null}
-      </DetailRow>
-      {person.married_name ? <DetailRow label="Married name">{person.married_name}</DetailRow> : null}
-      {person.military ? <DetailRow label="Military service">{person.military}</DetailRow> : null}
-      {parents.length ? (
-        <DetailRow label="Parents">
-          {parents.map((id, i) => (
-            <span key={id}>
-              {i > 0 ? " & " : ""}
-              <PersonLink id={id} peopleById={peopleById} onJump={onJump} />
-            </span>
-          ))}
-        </DetailRow>
-      ) : null}
-      {spouses.length ? (
-        <DetailRow label={spouses.length > 1 ? "Spouses" : "Spouse"}>
-          {spouses.map((sid, i) => {
-            const rec = marriageOf.get(`${person.id}|${sid}`) || marriageOf.get(`${sid}|${person.id}`);
-            return (
-              <div key={sid} className={i > 0 ? "mt-1.5" : ""}>
-                <PersonLink id={sid} peopleById={peopleById} onJump={onJump} />
-                {rec && rec.year ? (
-                  <span className="text-[12px]" style={{ color: "#6B6350" }}>
-                    {" "}
-                    &mdash; m. {fullDate(rec.year, rec.month, rec.day)}
-                    {rec.location_id ? `, ${locationLabel(locationsById.get(rec.location_id))}` : ""}
-                  </span>
-                ) : null}
-              </div>
-            );
-          })}
-        </DetailRow>
-      ) : null}
-      {kids.length ? (
-        <DetailRow label="Children">
-          <div className="flex flex-col gap-1">
-            {kids.map((id) => (
-              <div key={id} className="flex items-center gap-1">
-                <ChevronRight size={12} color={BRASS} />
-                <PersonLink id={id} peopleById={peopleById} onJump={onJump} />
-              </div>
-            ))}
-          </div>
-        </DetailRow>
-      ) : null}
-      {person.description ? <DetailRow label="Notes">{person.description}</DetailRow> : null}
-    </>
-  );
-}
-
-/* ---------------------------------------------------------------------- */
-/*  RECORD CARD (tree side panel)                                          */
-/* ---------------------------------------------------------------------- */
-function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, childrenMap, onJump, onClose }) {
-  if (!person) return null;
   return (
     <div
-      className="family-record-panel"
-      style={{ background: CARD }}
+      className="fixed md:absolute inset-x-0 bottom-0 md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[360px] max-h-[72vh] md:max-h-none overflow-y-auto z-20 rounded-t-xl md:rounded-none border-t md:border-t-0 md:border-l"
+      style={{
+        background: CARD,
+        borderColor: LINE,
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: "360px",
+        maxHeight: "none",
+        overflowY: "auto",
+        zIndex: 20,
+        borderLeft: `1px solid ${LINE}`,
+      }}
     >
       <div className="sticky top-0 flex items-start justify-between px-5 pt-4 pb-3 border-b" style={{ background: CARD, borderColor: LINE }}>
         <div>
@@ -587,157 +484,84 @@ function RecordCard({ person, locationsById, peopleById, spouseMap, marriageOf, 
           <X size={18} />
         </button>
       </div>
-
-      <PersonPhoto person={person} />
-
-      <div className="px-5 py-4">
-        <PersonDetailRows
-          person={person}
-          locationsById={locationsById}
-          peopleById={peopleById}
-          spouseMap={spouseMap}
-          marriageOf={marriageOf}
-          childrenMap={childrenMap}
-          onJump={onJump}
+      
+    {hasPhoto ? (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          marginBottom: "20px",
+        }}
+      >
+        <img
+          src={`${import.meta.env.BASE_URL}photos/${person.id}.jpg`}
+          alt={fullName(person)}
+          onError={() => setHasPhoto(false)}
+          style={{
+            width: "140px",
+            height: "170px",
+            maxWidth: "140px",
+            maxHeight: "170px",
+            objectFit: "cover",
+            display: "block",
+            border: `1px solid ${LINE}`,
+            background: PARCHMENT,
+          }}
         />
       </div>
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------------- */
-/*  ENTRY PAGE — search first, then choose how to enter the tree           */
-/* ---------------------------------------------------------------------- */
-function EntryPage({ people, locationsById, peopleById, spouseMap, marriageOf, childrenMap, onViewInTree, onFilterToRelatives }) {
-  const [search, setSearch] = useState("");
-  const [showResults, setShowResults] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
-
-  const results = useMemo(() => {
-    if (!search.trim()) return [];
-    const q = search.trim().toLowerCase();
-    return people.filter((p) => fullName(p).toLowerCase().includes(q)).slice(0, 8);
-  }, [search, people]);
-
-  const selected = selectedId ? peopleById.get(selectedId) : null;
-
-  function pick(id) {
-    const p = peopleById.get(id);
-    setSelectedId(id);
-    setSearch(p ? fullName(p) : "");
-    setShowResults(false);
-  }
-
-  return (
-    <div className="w-full h-full flex flex-col items-center overflow-y-auto px-6 py-12" style={{ background: PARCHMENT }}>
-      <style>{FONT_IMPORT}</style>
-      <div className="text-center">
-        <h1 className="text-3xl leading-none" style={{ fontFamily: "Fraunces, serif", fontWeight: 700, color: INK }}>
-          The Family Register
-        </h1>
-        <div className="text-[12px] mt-2 tracking-wide" style={{ color: "#8A8265", fontFamily: "'IBM Plex Mono', monospace" }}>
-          {people.length} recorded lives &middot; search a name to begin
-        </div>
-      </div>
-
-      <div className="relative w-full max-w-md mt-8">
-        <div className="flex items-center gap-2 px-3 py-2.5 rounded border" style={{ borderColor: LINE, background: CARD }}>
-          <Search size={15} color="#8A8265" />
-          <input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setShowResults(true);
-              setSelectedId(null);
-            }}
-            onFocus={() => setShowResults(true)}
-            placeholder="Find a name…"
-            className="text-[14px] bg-transparent outline-none w-full"
-            style={{ color: INK, fontFamily: "Inter, sans-serif" }}
-          />
-        </div>
-        {showResults && results.length > 0 ? (
-          <div className="absolute left-0 right-0 mt-1 rounded border shadow-lg z-30 overflow-hidden" style={{ background: CARD, borderColor: LINE }}>
-            {results.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => pick(p.id)}
-                className="w-full text-left px-3 py-2.5 text-[13.5px] hover:opacity-70 flex justify-between items-center border-b last:border-b-0"
-                style={{ color: INK, borderColor: LINE }}
-              >
-                <span>{fullName(p)}</span>
-                <span className="text-[10px]" style={{ color: "#8A8265", fontFamily: "'IBM Plex Mono', monospace" }}>
-                  {lifespanLabel(p)}
-                </span>
-              </button>
+    ) : null}
+      
+        <Row label="Born">
+          {[fullDate(person.birth_year, person.birth_month, person.birth_day), birthLoc].filter(Boolean).join(" \u00b7 ") || "Unknown"}
+        </Row>
+        <Row label="Died">
+          {person.death_year ? [fullDate(person.death_year, person.death_month, person.death_day), deathLoc].filter(Boolean).join(" \u00b7 ") : null}
+        </Row>
+        {person.married_name ? <Row label="Married name">{person.married_name}</Row> : null}
+        {person.military ? <Row label="Military service">{person.military}</Row> : null}
+        {parents.length ? (
+          <Row label="Parents">
+            {parents.map((id, i) => (
+              <span key={id}>
+                {i > 0 ? " & " : ""}
+                <Link id={id} />
+              </span>
             ))}
-          </div>
+          </Row>
         ) : null}
-      </div>
-
-      {selected ? (
-        <div className="w-full max-w-md mt-6 rounded border overflow-hidden" style={{ background: CARD, borderColor: LINE }}>
-          <div className="px-5 pt-4 pb-3 border-b flex items-start justify-between" style={{ borderColor: LINE }}>
-            <div>
-              <div className="text-[10px] tracking-[0.14em]" style={{ color: BRASS, fontFamily: "'IBM Plex Mono', monospace" }}>
-                RECORD NO. {selected.id.replace(/[^0-9]/g, "").padStart(3, "0")}
-              </div>
-              <div className="text-lg font-semibold leading-tight mt-0.5" style={{ fontFamily: "Fraunces, serif", color: INK }}>
-                {fullName(selected)}
-              </div>
-              {selected.tittle ? (
-                <div className="text-xs italic mt-0.5" style={{ color: BRASS }}>
-                  {selected.tittle}
+        {spouses.length ? (
+          <Row label={spouses.length > 1 ? "Spouses" : "Spouse"}>
+            {spouses.map((sid, i) => {
+              const rec = marriageOf.get(`${person.id}|${sid}`) || marriageOf.get(`${sid}|${person.id}`);
+              return (
+                <div key={sid} className={i > 0 ? "mt-1.5" : ""}>
+                  <Link id={sid} />
+                  {rec && rec.year ? (
+                    <span className="text-[12px]" style={{ color: "#6B6350" }}>
+                      {" "}
+                      &mdash; m. {fullDate(rec.year, rec.month, rec.day)}
+                      {rec.location_id ? `, ${locationLabel(locationsById.get(rec.location_id))}` : ""}
+                    </span>
+                  ) : null}
                 </div>
-              ) : null}
+              );
+            })}
+          </Row>
+        ) : null}
+        {kids.length ? (
+          <Row label="Children">
+            <div className="flex flex-col gap-1">
+              {kids.map((id) => (
+                <div key={id} className="flex items-center gap-1">
+                  <ChevronRight size={12} color={BRASS} />
+                  <Link id={id} />
+                </div>
+              ))}
             </div>
-            <button
-              onClick={() => {
-                setSelectedId(null);
-                setSearch("");
-              }}
-              className="p-1 rounded hover:opacity-60 shrink-0"
-              style={{ color: INK }}
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          <PersonPhoto person={selected} />
-
-          <div className="px-5 py-4 max-h-[40vh] overflow-y-auto">
-            <PersonDetailRows
-              person={selected}
-              locationsById={locationsById}
-              peopleById={peopleById}
-              spouseMap={spouseMap}
-              marriageOf={marriageOf}
-              childrenMap={childrenMap}
-              onJump={pick}
-            />
-          </div>
-
-          <div className="flex gap-2 p-4 border-t" style={{ borderColor: LINE }}>
-            <button
-              onClick={() => onViewInTree(selected.id)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded text-[13px] font-medium"
-              style={{ background: INK, color: PARCHMENT, fontFamily: "Inter, sans-serif" }}
-            >
-              <Network size={14} />
-              View in Tree
-            </button>
-            <button
-              onClick={() => onFilterToRelatives(selected.id)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded text-[13px] font-medium border"
-              style={{ borderColor: BRASS, color: BRASS, fontFamily: "Inter, sans-serif" }}
-            >
-              <Users size={14} />
-              Filter Tree to Relatives
-            </button>
-          </div>
-        </div>
-      ) : null}
-    </div>
+          </Row>
+        ) : null}
+        {person.description ? <Row label="Notes">{person.description}</Row> : null}
+      </div>
   );
 }
 
@@ -751,11 +575,6 @@ export default function FamilyRegister() {
   const [loadState, setLoadState] = useState("loading"); // loading | ready | error | invalid
   const [loadMessage, setLoadMessage] = useState("");
   const [issues, setIssues] = useState([]);
-
-  const [page, setPage] = useState("entry"); // entry | tree
-  const [filterId, setFilterId] = useState(null);
-  const [pendingFocusId, setPendingFocusId] = useState(null);
-
   const [selectedId, setSelectedId] = useState(null);
   const [search, setSearch] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -816,30 +635,11 @@ export default function FamilyRegister() {
 
   const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const locationsById = useMemo(() => new Map(locations.map((l) => [l.location_id, l])), [locations]);
-
-  // Relation maps over the FULL dataset — used for the relatives filter regardless of what's displayed
-  const fullMaps = useMemo(() => buildRelationMaps(people, marriages), [people, marriages]);
-
-  const relativeIds = useMemo(() => {
-    if (!filterId) return null;
-    return getRelativeIds(filterId, fullMaps.byId, fullMaps.childrenMap, fullMaps.spouseMap);
-  }, [filterId, fullMaps]);
-
-  const peopleForLayout = useMemo(() => {
-    if (!relativeIds) return people;
-    return people.filter((p) => relativeIds.has(p.id));
-  }, [people, relativeIds]);
-
-  const marriagesForLayout = useMemo(() => {
-    if (!relativeIds) return marriages;
-    return marriages.filter((m) => relativeIds.has(m.husband) && relativeIds.has(m.wife));
-  }, [marriages, relativeIds]);
-
-  const layout = useMemo(() => buildLayout(peopleForLayout, marriagesForLayout), [peopleForLayout, marriagesForLayout]);
+  const layout = useMemo(() => buildLayout(people, marriages), [people, marriages]);
 
   const fitView = useCallback(() => {
     const el = containerRef.current;
-    if (!el || !peopleForLayout.length) return;
+    if (!el || !people.length) return;
     const { bounds } = layout;
     const cw = el.clientWidth;
     const ch = el.clientHeight;
@@ -851,22 +651,14 @@ export default function FamilyRegister() {
       y: 56 - bounds.minY * scale,
       scale,
     });
-  }, [layout, peopleForLayout.length]);
+  }, [layout, people.length]);
 
   useLayoutEffect(() => {
-    if (loadState !== "ready" || page !== "tree") return;
+    if (loadState !== "ready") return;
     fitView();
     setReady(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout, loadState, page]);
-
-  useEffect(() => {
-    if (page === "tree" && ready && pendingFocusId) {
-      centerOn(pendingFocusId);
-      setPendingFocusId(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, ready, pendingFocusId, layout]);
+  }, [layout, loadState]);
 
   function centerOn(id) {
     const el = containerRef.current;
@@ -886,31 +678,6 @@ export default function FamilyRegister() {
     setSearch("");
     setShowSearchResults(false);
     centerOn(id);
-  }
-
-  function goToTree(id) {
-    setFilterId(null);
-    setSelectedId(id);
-    setPendingFocusId(id);
-    setPage("tree");
-  }
-
-  function goToTreeFiltered(id) {
-    setFilterId(id);
-    setSelectedId(id);
-    setPendingFocusId(id);
-    setPage("tree");
-  }
-
-  function clearFilter() {
-    setFilterId(null);
-  }
-
-  function backToSearch() {
-    setPage("entry");
-    setSelectedId(null);
-    setFilterId(null);
-    setReady(false);
   }
 
   function onWheel(e) {
@@ -935,225 +702,204 @@ export default function FamilyRegister() {
   const searchResults = useMemo(() => {
     if (!search.trim()) return [];
     const q = search.trim().toLowerCase();
-    return peopleForLayout.filter((p) => fullName(p).toLowerCase().includes(q)).slice(0, 8);
-  }, [search, peopleForLayout]);
+    return people.filter((p) => fullName(p).toLowerCase().includes(q)).slice(0, 8);
+  }, [search, people]);
 
   const selectedPerson = selectedId ? peopleById.get(selectedId) : null;
   const genCount = layout.maxGen + 1;
-  const filterPerson = filterId ? peopleById.get(filterId) : null;
-
-  if (loadState === "loading" || loadState === "error" || loadState === "invalid") {
-    return (
-      <div className="w-full h-full flex flex-col overflow-hidden select-none" style={{ height: "100vh", background: PARCHMENT, fontFamily: "Inter, sans-serif" }}>
-        <style>{`${FONT_IMPORT}`}</style>
-        <div className="flex-1 relative overflow-hidden">
-          {loadState === "loading" ? (
-            <div className="absolute inset-0 flex items-center justify-center text-[13px]" style={{ color: "#8A8265" }}>
-              Loading records&hellip;
-            </div>
-          ) : null}
-          {loadState === "error" ? (
-            <div className="absolute inset-0 flex items-center justify-center px-8">
-              <div className="max-w-md text-center text-[13.5px] leading-relaxed" style={{ color: BURGUNDY }}>
-                {loadMessage}
-              </div>
-            </div>
-          ) : null}
-          {loadState === "invalid" ? (
-            <div className="absolute inset-0 overflow-y-auto px-6 py-8 flex justify-center">
-              <div className="max-w-2xl w-full">
-                <div className="text-[14px] font-semibold mb-1" style={{ color: BURGUNDY, fontFamily: "Fraunces, serif" }}>
-                  The tree can't be built until these are fixed
-                </div>
-                <div className="text-[12.5px] mb-4" style={{ color: "#6B6350" }}>
-                  Self-parenting, self-marriage, and ancestry cycles aren't allowed &mdash; fix the source CSVs and reload.
-                </div>
-                <div className="flex flex-col gap-2">
-                  {issues.map((issue, i) => (
-                    <div key={i} className="rounded border px-3 py-2.5" style={{ borderColor: LINE, background: CARD }}>
-                      <div className="text-[10px] tracking-[0.12em] uppercase font-medium mb-1" style={{ color: BRASS }}>
-                        {issue.type}
-                      </div>
-                      <div className="text-[13px] leading-snug" style={{ color: INK, fontFamily: "'IBM Plex Mono', monospace" }}>
-                        {issue.detail}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  if (page === "entry") {
-    return (
-      <div style={{ height: "100vh" }}>
-        <EntryPage
-          people={people}
-          locationsById={locationsById}
-          peopleById={peopleById}
-          spouseMap={fullMaps.spouseMap}
-          marriageOf={fullMaps.marriageOf}
-          childrenMap={fullMaps.childrenMap}
-          onViewInTree={goToTree}
-          onFilterToRelatives={goToTreeFiltered}
-        />
-      </div>
-    );
-  }
 
   return (
-    <div className="w-full flex flex-col overflow-hidden select-none" style={{ height: "100vh", background: PARCHMENT, fontFamily: "Inter, sans-serif" }}>
-      <style>{`${FONT_IMPORT}${PANEL_CSS}`}</style>
+    <div
+      className="w-full h-screen flex flex-col overflow-hidden select-none"
+      style={{
+        background: PARCHMENT,
+        fontFamily: "Inter, sans-serif",
+        width: "100%",
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');`}</style>
+
+      {/* header */}
       <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b shrink-0" style={{ borderColor: LINE }}>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={backToSearch}
-            className="flex items-center gap-1 text-[12px] px-2 py-1.5 rounded border shrink-0"
-            style={{ borderColor: LINE, color: INK, background: CARD }}
-          >
-            <ArrowLeft size={13} />
-            <span className="hidden md:inline">New search</span>
-          </button>
-          <div>
-            <h1 className="text-xl leading-none" style={{ fontFamily: "Fraunces, serif", fontWeight: 700, color: INK }}>
-              The Family Register
-            </h1>
-            <div className="text-[11px] mt-1 tracking-wide" style={{ color: "#8A8265", fontFamily: "'IBM Plex Mono', monospace" }}>
-              {filterId
-                ? `${peopleForLayout.length} relatives of ${filterPerson ? fullName(filterPerson) : ""} \u00b7 ${genCount} generations`
-                : `${people.length} recorded lives \u00b7 ${genCount} generations`}
-            </div>
+        <div>
+          <h1 className="text-xl leading-none" style={{ fontFamily: "Fraunces, serif", fontWeight: 700, color: INK }}>
+            The Family Register
+          </h1>
+          <div className="text-[11px] mt-1 tracking-wide" style={{ color: "#8A8265", fontFamily: "'IBM Plex Mono', monospace" }}>
+            {loadState === "ready"
+              ? `${people.length} recorded lives \u00b7 ${genCount} generations`
+              : loadState === "loading"
+              ? "Loading records\u2026"
+              : loadState === "invalid"
+              ? `${issues.length} data issue${issues.length === 1 ? "" : "s"} found`
+              : "No records loaded"}
           </div>
         </div>
-        <div className="relative">
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border" style={{ borderColor: LINE, background: CARD }}>
-            <Search size={14} color="#8A8265" />
-            <input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setShowSearchResults(true);
-              }}
-              onFocus={() => setShowSearchResults(true)}
-              placeholder="Find a name…"
-              className="text-[13px] bg-transparent outline-none w-28 md:w-40"
-              style={{ color: INK }}
-            />
-          </div>
-          {showSearchResults && searchResults.length > 0 ? (
-            <div
-              className="absolute right-0 mt-1 w-56 rounded border shadow-lg z-30 overflow-hidden"
-              style={{ background: CARD, borderColor: LINE }}
-            >
-              {searchResults.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => selectAndCenter(p.id)}
-                  className="w-full text-left px-3 py-2 text-[13px] hover:opacity-70 flex justify-between items-center"
-                  style={{ color: INK }}
-                >
-                  <span>{fullName(p)}</span>
-                  <span className="text-[10px]" style={{ color: "#8A8265", fontFamily: "'IBM Plex Mono', monospace" }}>
-                    {lifespanLabel(p)}
-                  </span>
-                </button>
-              ))}
+        {loadState === "ready" ? (
+          <div className="relative">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border" style={{ borderColor: LINE, background: CARD }}>
+              <Search size={14} color="#8A8265" />
+              <input
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setShowSearchResults(true);
+                }}
+                onFocus={() => setShowSearchResults(true)}
+                placeholder="Find a name\u2026"
+                className="text-[13px] bg-transparent outline-none w-28 md:w-40"
+                style={{ color: INK }}
+              />
             </div>
-          ) : null}
-        </div>
+            {showSearchResults && searchResults.length > 0 ? (
+              <div
+                className="absolute right-0 mt-1 w-56 rounded border shadow-lg z-30 overflow-hidden"
+                style={{ background: CARD, borderColor: LINE }}
+              >
+                {searchResults.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => selectAndCenter(p.id)}
+                    className="w-full text-left px-3 py-2 text-[13px] hover:opacity-70 flex justify-between items-center"
+                    style={{ color: INK }}
+                  >
+                    <span>{fullName(p)}</span>
+                    <span className="text-[10px]" style={{ color: "#8A8265", fontFamily: "'IBM Plex Mono', monospace" }}>
+                      {lifespanLabel(p)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {/* canvas */}
       <div
         ref={containerRef}
-        className="relative flex-1 overflow-hidden"
+        className="relative flex-1 min-h-0 overflow-hidden"
         style={{
           background: "radial-gradient(circle at 1px 1px, rgba(35,42,59,0.09) 1px, transparent 0) " + PARCHMENT,
           backgroundSize: "22px 22px",
           cursor: panState.current.dragging ? "grabbing" : "grab",
+          position: "relative",
+          flex: "1 1 0%",
+          minHeight: 0,
+          overflow: "hidden",
         }}
-        onWheel={onWheel}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
+        onWheel={loadState === "ready" ? onWheel : undefined}
+        onPointerDown={loadState === "ready" ? onPointerDown : undefined}
+        onPointerMove={loadState === "ready" ? onPointerMove : undefined}
+        onPointerUp={loadState === "ready" ? onPointerUp : undefined}
+        onPointerLeave={loadState === "ready" ? onPointerUp : undefined}
         onClick={() => setShowSearchResults(false)}
       >
-        <svg width="100%" height="100%" style={{ opacity: ready ? 1 : 0, transition: "opacity 0.3s" }}>
-          <g transform={`translate(${view.x},${view.y}) scale(${view.scale})`}>
-            {layout.edges.map((e) => (
-              <path key={e.id} d={e.d} fill="none" stroke={LINE} strokeWidth={1.4} />
-            ))}
-            {layout.marriageEdges.map((m) => (
-              <g key={m.id}>
-                <line x1={m.x1} x2={m.x2} y1={m.y} y2={m.y} stroke={BRASS} strokeWidth={1.4} />
-                <rect x={m.midX - 3.5} y={m.y - 3.5} width={7} height={7} fill={BRASS} transform={`rotate(45 ${m.midX} ${m.y})`} />
-              </g>
-            ))}
-            {peopleForLayout.map((p) => {
-              const pos = layout.positions.get(p.id);
-              if (!pos) return null;
-              return <PersonNode key={p.id} person={p} pos={pos} selected={selectedId === p.id} onSelect={selectAndCenter} />;
-            })}
-          </g>
-        </svg>
-
-        {filterId ? (
-          <div
-            className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 text-[12px] px-3 py-1.5 rounded-full border shadow-sm"
-            style={{ borderColor: BRASS, background: CARD, color: INK }}
-          >
-            <Users size={13} color={BRASS} />
-            <span>
-              Relatives of <strong>{filterPerson ? fullName(filterPerson) : ""}</strong>
-            </span>
-            <button onClick={clearFilter} className="ml-1 hover:opacity-60" style={{ color: BURGUNDY }}>
-              <X size={13} />
-            </button>
+        {loadState === "loading" ? (
+          <div className="absolute inset-0 flex items-center justify-center text-[13px]" style={{ color: "#8A8265", fontFamily: "Inter, sans-serif" }}>
+            Loading records&hellip;
           </div>
         ) : null}
 
-        <div className="absolute bottom-4 right-4 flex flex-col rounded border overflow-hidden" style={{ borderColor: LINE, background: CARD }}>
-          <button
-            onClick={() => setView((v) => ({ ...v, scale: Math.min(2, v.scale + 0.15) }))}
-            className="p-2 border-b hover:opacity-70"
-            style={{ borderColor: LINE, color: INK }}
-          >
-            <ZoomIn size={15} />
-          </button>
-          <button
-            onClick={() => setView((v) => ({ ...v, scale: Math.max(0.3, v.scale - 0.15) }))}
-            className="p-2 border-b hover:opacity-70"
-            style={{ borderColor: LINE, color: INK }}
-          >
-            <ZoomOut size={15} />
-          </button>
-          <button onClick={fitView} className="p-2 hover:opacity-70" style={{ color: INK }}>
-            <RotateCcw size={15} />
-          </button>
-        </div>
+        {loadState === "error" ? (
+          <div className="absolute inset-0 flex items-center justify-center px-8">
+            <div className="max-w-md text-center text-[13.5px] leading-relaxed" style={{ color: BURGUNDY, fontFamily: "Inter, sans-serif" }}>
+              {loadMessage}
+            </div>
+          </div>
+        ) : null}
 
-        <div
-          className="absolute bottom-4 left-4 hidden md:flex items-center gap-4 text-[11px] px-3 py-2 rounded border"
-          style={{ borderColor: LINE, background: CARD, color: "#6B6350" }}
-        >
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-2.5 h-2.5" style={{ background: INK }} /> male line
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-2.5 h-2.5" style={{ background: BURGUNDY }} /> female line
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Crown size={12} color={BRASS} /> titled
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Shield size={12} color={INK} /> military
-          </span>
-        </div>
+        {loadState === "invalid" ? (
+          <div className="absolute inset-0 overflow-y-auto px-6 py-8 flex justify-center">
+            <div className="max-w-2xl w-full">
+              <div className="text-[14px] font-semibold mb-1" style={{ color: BURGUNDY, fontFamily: "Fraunces, serif" }}>
+                The tree can't be built until these are fixed
+              </div>
+              <div className="text-[12.5px] mb-4" style={{ color: "#6B6350", fontFamily: "Inter, sans-serif" }}>
+                Self-parenting, self-marriage, and ancestry cycles aren't allowed &mdash; fix the source CSVs and reload.
+              </div>
+              <div className="flex flex-col gap-2">
+                {issues.map((issue, i) => (
+                  <div key={i} className="rounded border px-3 py-2.5" style={{ borderColor: LINE, background: CARD }}>
+                    <div className="text-[10px] tracking-[0.12em] uppercase font-medium mb-1" style={{ color: BRASS, fontFamily: "Inter, sans-serif" }}>
+                      {issue.type}
+                    </div>
+                    <div className="text-[13px] leading-snug" style={{ color: INK, fontFamily: "'IBM Plex Mono', monospace" }}>
+                      {issue.detail}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {loadState === "ready" ? (
+          <svg width="100%" height="100%" style={{ opacity: ready ? 1 : 0, transition: "opacity 0.3s" }}>
+            <g transform={`translate(${view.x},${view.y}) scale(${view.scale})`}>
+              {layout.edges.map((e) => (
+                <path key={e.id} d={e.d} fill="none" stroke={LINE} strokeWidth={1.4} />
+              ))}
+              {layout.marriageEdges.map((m) => (
+                <g key={m.id}>
+                  <line x1={m.x1} x2={m.x2} y1={m.y} y2={m.y} stroke={BRASS} strokeWidth={1.4} />
+                  <rect x={m.midX - 3.5} y={m.y - 3.5} width={7} height={7} fill={BRASS} transform={`rotate(45 ${m.midX} ${m.y})`} />
+                </g>
+              ))}
+              {people.map((p) => {
+                const pos = layout.positions.get(p.id);
+                if (!pos) return null;
+                return <PersonNode key={p.id} person={p} pos={pos} selected={selectedId === p.id} onSelect={selectAndCenter} />;
+              })}
+            </g>
+          </svg>
+        ) : null}
+
+        {loadState === "ready" ? (
+          <>
+            <div className="absolute bottom-4 right-4 flex flex-col rounded border overflow-hidden" style={{ borderColor: LINE, background: CARD }}>
+              <button
+                onClick={() => setView((v) => ({ ...v, scale: Math.min(2, v.scale + 0.15) }))}
+                className="p-2 border-b hover:opacity-70"
+                style={{ borderColor: LINE, color: INK }}
+              >
+                <ZoomIn size={15} />
+              </button>
+              <button
+                onClick={() => setView((v) => ({ ...v, scale: Math.max(0.3, v.scale - 0.15) }))}
+                className="p-2 border-b hover:opacity-70"
+                style={{ borderColor: LINE, color: INK }}
+              >
+                <ZoomOut size={15} />
+              </button>
+              <button onClick={fitView} className="p-2 hover:opacity-70" style={{ color: INK }}>
+                <RotateCcw size={15} />
+              </button>
+            </div>
+
+            <div
+              className="absolute bottom-4 left-4 hidden md:flex items-center gap-4 text-[11px] px-3 py-2 rounded border"
+              style={{ borderColor: LINE, background: CARD, color: "#6B6350" }}
+            >
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5" style={{ background: INK }} /> male line
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5" style={{ background: BURGUNDY }} /> female line
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Crown size={12} color={BRASS} /> titled
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Shield size={12} color={INK} /> military
+              </span>
+            </div>
+          </>
+        ) : null}
 
         {selectedPerson ? (
           <RecordCard
